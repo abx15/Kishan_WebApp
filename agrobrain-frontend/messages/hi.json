@@ -1,0 +1,89 @@
+{
+  "nav": {
+    "dashboard": "Dashboard",
+    "weather": "Mausam",
+    "recommend": "Fasl Ki Salah",
+    "chat": "Baatchit",
+    "voice": "Awaaz",
+    "profile": "Profile",
+    "logout": "Logout"
+  },
+  "auth": {
+    "login_title": "AgroBrain mein Login karein",
+    "phone_label": "Phone Number",
+    "otp_label": "OTP darj karein",
+    "verify_btn": "Verify karein",
+    "welcome_back": "Phir se aapka swagat hai!",
+    "send_otp": "OTP bhejein",
+    "resend_otp": "OTP dobara bhejein",
+    "otp_sent": "OTP safaltapoorak bheja gaya",
+    "invalid_otp": "Galat OTP",
+    "login_success": "Login safaltapoorak"
+  },
+  "weather": {
+    "title": "Mausam Jaankari",
+    "feels_like": "Mehsoos",
+    "humidity": "Nami",
+    "wind": "Hawa ki Raftar",
+    "uv_index": "UV Index",
+    "forecast": "7 Din ka Forecast",
+    "alerts": "Mausam Alert",
+    "current": "Current Mausam",
+    "temperature": "Taapman",
+    "pressure": "Dabav",
+    "visibility": "Dikhai",
+    "no_data": "Koi mausam data uplabdh nahi"
+  },
+  "recommend": {
+    "title": "Fasl Ki Salah",
+    "soil_form": "Mitti Analysis Form",
+    "submit_btn": "Salah prapt karein",
+    "top_crops": "Salahit Falsen",
+    "fertilizer_plan": "Khad Ka Plan",
+    "nitrogen": "Nitrogen (kg/ha)",
+    "phosphorus": "Phosphorus (kg/ha)",
+    "potassium": "Potassium (kg/ha)",
+    "ph": "pH Level",
+    "moisture": "Nami (%)",
+    "soil_type": "Mitti ki Prakar",
+    "confidence": "Vishwas",
+    "expected_yield": "Umeedit Paidaar",
+    "planting_season": "Boane ka Mausam",
+    "water_requirement": "Pani ki Zarurat"
+  },
+  "chat": {
+    "title": "Baatchat Sahayak",
+    "placeholder": "Kheti, mausam, faslon ke baare mein poochein...",
+    "send": "Bhejein",
+    "new_chat": "Nayi Baatchat",
+    "voice_mode": "Awaaz Mode",
+    "typing": "Sahayak likh raha hai...",
+    "welcome": "Namaste! Main aapka kheti sahayak hoon. Main aapki kya madad kar sakta hoon aaj?",
+    "history": "Baatchat Itihaas"
+  },
+  "voice": {
+    "title": "Awaaz Sahayak",
+    "start_listening": "Suna shuru karein",
+    "stop_listening": "Suna band karein",
+    "listening": "Sun raha hai...",
+    "processing": "Process kar raha hai...",
+    "try_again": "Phir se koshish karein",
+    "command_heard": "Command suna gaya:",
+    "no_command": "Koi command nahi pahchana gaya"
+  },
+  "common": {
+    "loading": "Load ho raha hai...",
+    "error": "Galti",
+    "retry": "Phir se koshish karein",
+    "save": "Save karein",
+    "cancel": "Cancel karein",
+    "yes": "Haan",
+    "no": "Nahi",
+    "close": "Band karein",
+    "back": "Wapas",
+    "next": "Agla",
+    "search": "Khojein",
+    "refresh": "Refresh karein",
+    "settings": "Settings"
+  }
+}

@@ -1,0 +1,89 @@
+{
+  "nav": {
+    "dashboard": "Dashboard",
+    "weather": "Weather",
+    "recommend": "Recommendations",
+    "chat": "Chat",
+    "voice": "Voice",
+    "profile": "Profile",
+    "logout": "Logout"
+  },
+  "auth": {
+    "login_title": "Login to AgroBrain",
+    "phone_label": "Phone Number",
+    "otp_label": "Enter OTP",
+    "verify_btn": "Verify",
+    "welcome_back": "Welcome back!",
+    "send_otp": "Send OTP",
+    "resend_otp": "Resend OTP",
+    "otp_sent": "OTP sent successfully",
+    "invalid_otp": "Invalid OTP",
+    "login_success": "Login successful"
+  },
+  "weather": {
+    "title": "Weather Information",
+    "feels_like": "Feels like",
+    "humidity": "Humidity",
+    "wind": "Wind Speed",
+    "uv_index": "UV Index",
+    "forecast": "7-Day Forecast",
+    "alerts": "Weather Alerts",
+    "current": "Current Weather",
+    "temperature": "Temperature",
+    "pressure": "Pressure",
+    "visibility": "Visibility",
+    "no_data": "No weather data available"
+  },
+  "recommend": {
+    "title": "Crop Recommendations",
+    "soil_form": "Soil Analysis Form",
+    "submit_btn": "Get Recommendations",
+    "top_crops": "Recommended Crops",
+    "fertilizer_plan": "Fertilizer Plan",
+    "nitrogen": "Nitrogen (kg/ha)",
+    "phosphorus": "Phosphorus (kg/ha)",
+    "potassium": "Potassium (kg/ha)",
+    "ph": "pH Level",
+    "moisture": "Moisture (%)",
+    "soil_type": "Soil Type",
+    "confidence": "Confidence",
+    "expected_yield": "Expected Yield",
+    "planting_season": "Planting Season",
+    "water_requirement": "Water Requirement"
+  },
+  "chat": {
+    "title": "Chat Assistant",
+    "placeholder": "Ask about farming, weather, crops...",
+    "send": "Send",
+    "new_chat": "New Chat",
+    "voice_mode": "Voice Mode",
+    "typing": "Assistant is typing...",
+    "welcome": "Hello! I'm your farming assistant. How can I help you today?",
+    "history": "Chat History"
+  },
+  "voice": {
+    "title": "Voice Assistant",
+    "start_listening": "Start Listening",
+    "stop_listening": "Stop Listening",
+    "listening": "Listening...",
+    "processing": "Processing...",
+    "try_again": "Try Again",
+    "command_heard": "Command heard:",
+    "no_command": "No command detected"
+  },
+  "common": {
+    "loading": "Loading...",
+    "error": "Error",
+    "retry": "Retry",
+    "save": "Save",
+    "cancel": "Cancel",
+    "yes": "Yes",
+    "no": "No",
+    "close": "Close",
+    "back": "Back",
+    "next": "Next",
+    "search": "Search",
+    "refresh": "Refresh",
+    "settings": "Settings"
+  }
+}

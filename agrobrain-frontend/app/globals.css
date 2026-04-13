@@ -1,0 +1,141 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* AgroBrain Design System */
+    --primary: #16a34a;
+    --primary-light: #dcfce7;
+    --primary-dark: #14532d;
+    --accent: #ca8a04;
+    --bg-main: #f9fafb;
+    --bg-card: #ffffff;
+    --text-primary: #111827;
+    --text-secondary: #6b7280;
+    --border: #e5e7eb;
+    --success: #16a34a;
+    --warning: #d97706;
+    --danger: #dc2626;
+    --radius: 12px;
+
+    /* Tailwind CSS Variables */
+    --background: 250 40% 98%; /* --bg-main */
+    --foreground: 220 13% 7%; /* --text-primary */
+    --card: 0 0% 100%; /* --bg-card */
+    --card-foreground: 220 13% 7%; /* --text-primary */
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 13% 7%;
+    --primary: 142 71% 29%; /* --primary */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 138 50% 96%; /* --primary-light */
+    --secondary-foreground: 142 71% 29%; /* --primary */
+    --muted: 250 40% 98%; /* --bg-main */
+    --muted-foreground: 220 9% 46%; /* --text-secondary */
+    --accent: 43 91% 54%; /* --accent */
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84% 61%; /* --danger */
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 13% 91%; /* --border */
+    --input: 220 13% 91%; /* --border */
+    --ring: 142 71% 29%; /* --primary */
+    --radius: 0.75rem; /* --radius */
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 142.1 70.6% 45.3%;
+    --primary-foreground: 144.9 80.4% 10%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 142.4 71.8% 29.2%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Inter', sans-serif;
+  }
+  h1, h2, h3, h4 {
+    font-family: 'DM Sans', sans-serif;
+  }
+}
+
+@layer components {
+  .agro-gradient {
+    background: linear-gradient(135deg, #16a34a 0%, #14532d 100%);
+  }
+  
+  .agro-gradient-text {
+    background: linear-gradient(135deg, #16a34a 0%, #14532d 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  
+  .weather-card {
+    @apply bg-gradient-to-br from-blue-50 to-blue-100 border border-gray-200 rounded-xl shadow-sm;
+  }
+  
+  .crop-card {
+    @apply bg-gradient-to-br from-green-50 to-green-100 border border-gray-200 rounded-xl shadow-sm;
+  }
+  
+  .alert-card {
+    @apply bg-gradient-to-br from-orange-50 to-orange-100 border border-gray-200 rounded-xl shadow-sm;
+  }
+  
+  /* Custom button styles */
+  .btn-primary {
+    @apply bg-green-600 hover:bg-green-700 text-white rounded-lg shadow-sm transition-colors;
+  }
+  
+  .btn-secondary {
+    @apply bg-green-100 hover:bg-green-200 text-green-800 rounded-lg shadow-sm transition-colors;
+  }
+  
+  .btn-outline {
+    @apply border border-gray-200 bg-white hover:bg-gray-50 text-gray-900 rounded-lg shadow-sm transition-colors;
+  }
+  
+  /* Card styles */
+  .card-elevated {
+    @apply bg-white border border-gray-200 rounded-xl shadow-sm;
+  }
+  
+  .card-hover {
+    @apply card-elevated hover:shadow-md transition-shadow;
+  }
+  
+  /* Text styles */
+  .text-primary {
+    @apply text-gray-900;
+  }
+  
+  .text-secondary {
+    @apply text-gray-500;
+  }
+  
+  .text-accent {
+    @apply text-yellow-600;
+  }
+}
