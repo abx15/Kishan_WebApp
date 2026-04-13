@@ -1,4 +1,36 @@
+# Design documents
 agrobrain-backend-prompts.md
 database_design.md
 databasecode.md
 system_design.md
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Python files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Node files
+node_modules/
+
+# Logs
+*.log
+
+# Firebase credentials
+firebase-credentials.json
+serviceAccountKey.json
