@@ -9,10 +9,9 @@ import json
 import asyncio
 from typing import Any, AsyncGenerator, Optional, Union
 
-import aioredis
-from aioredis import Redis
-from aioredis.exceptions import ConnectionError, RedisError
-+
+import redis.asyncio as aioredis
+from redis.asyncio import Redis
+from redis.exceptions import ConnectionError, RedisError
 from app.core.config import settings
 from app.core.logger import logger
 
@@ -86,6 +85,17 @@ class RedisManager:
                 self.redis = None
                 self._is_available = False
     
+    async def get_redis_client() -> Redis:
+        """
+        Get Redis client instance.
+        
+        Returns:
+            Redis: Redis client instance.
+        """
+        if self.redis is None:
+            await self.connect()
+        return self.redis
+
     async def health_check(self) -> bool:
         """
         Check Redis connection health.
@@ -250,6 +260,18 @@ async def connect_redis() -> None:
 async def disconnect_redis() -> None:
     """Disconnect from Redis."""
     await redis_manager.disconnect()
+
+
+async def get_redis_client() -> Redis:
+    """
+    Get Redis client instance.
+    
+    Returns:
+        Redis: Redis client instance.
+    """
+    if redis_manager.redis is None:
+        await redis_manager.connect()
+    return redis_manager.redis
 
 
 async def get_redis() -> AsyncGenerator[Redis, None]:

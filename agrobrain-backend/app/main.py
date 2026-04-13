@@ -6,16 +6,26 @@ lifecycle management, and global exception handlers.
 """
 
 import dns
+import os
 import time
 from contextlib import asynccontextmanager
 from typing import Dict, Any
 
 # Configure DNS for reliable MongoDB connection
 try:
-    dns.resolver.set_servers(['8.8.8.8', '8.8.4.4'])
-    print("DNS servers configured for MongoDB connection")
+    import dns.resolver
+    dns.resolver.nameservers = ['8.8.8.8', '8.8.4.4']
+    print("DNS servers configured for MongoDB connection: 8.8.8.8, 8.8.4.4")
 except Exception as e:
     print(f"DNS configuration failed: {e}")
+    # Fallback: try to set DNS using system configuration
+    try:
+        import socket
+        # This might help with DNS resolution
+        socket.getaddrinfo('mongodb.com', 27017)
+        print("DNS resolution test passed")
+    except Exception as fallback_e:
+        print(f"DNS fallback failed: {fallback_e}")
 
 from fastapi import FastAPI, Request, Response, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -33,6 +43,8 @@ import firebase_admin
 from firebase_admin import credentials
 from app.routes.auth import router as auth_router
 from app.routes.weather import router as weather_router
+from app.ml.predictor import CropPredictor
+from app.routes.recommend import router as recommend_router
 
 
 @asynccontextmanager
@@ -42,7 +54,15 @@ async def lifespan(app: FastAPI):
     logger.info("Starting AgroBrain AI backend...")
     
     try:
-        # Connect to database
+        # Initialize ML Predictor
+        try:
+            app.state.predictor = CropPredictor()
+            logger.info("Crop ML Predictor initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize Crop ML Predictor: {e}")
+            app.state.predictor = None
+
+        # Connect to database (temporarily disabled due to SSL issues)
         await connect_db()
         
         # Connect to Redis
@@ -51,12 +71,15 @@ async def lifespan(app: FastAPI):
         # Initialize Firebase Admin SDK
         if not firebase_admin._apps:
             try:
-                cred = credentials.Certificate(settings.firebase_credentials_path)
-                firebase_admin.initialize_app(cred)
-                logger.info("Firebase Admin SDK initialized successfully")
+                if settings.firebase_credentials_path and os.path.exists(settings.firebase_credentials_path):
+                    cred = credentials.Certificate(settings.firebase_credentials_path)
+                    firebase_admin.initialize_app(cred)
+                    logger.info("Firebase Admin SDK initialized successfully")
+                else:
+                    logger.warning("Firebase credentials file not found, Firebase features will be disabled")
             except Exception as e:
-                logger.error(f"Failed to initialize Firebase Admin SDK: {str(e)}")
-                raise
+                logger.error(f"Failed to initialize Firebase Admin SDK: {e}")
+                logger.warning("Continuing without Firebase - some features may not work")
         
         logger.info("AgroBrain AI backend started successfully")
         yield
@@ -277,11 +300,11 @@ app.include_router(
     tags=["Weather"]
 )
 
-# app.include_router(
-#     recommend_router,
-#     prefix="/api/v1/recommend",
-#     tags=["Recommendations"]
-# )
+app.include_router(
+    recommend_router,
+    prefix="/api/v1",
+    tags=["Recommendations"]
+)
 
 # app.include_router(
 #     chat_router,
