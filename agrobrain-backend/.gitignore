@@ -349,6 +349,7 @@ data/
 datasets/
 *.csv
 *.json
+!postman_collection.json
 *.parquet
 
 # Certificate files
