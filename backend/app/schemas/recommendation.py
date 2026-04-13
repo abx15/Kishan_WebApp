@@ -6,7 +6,7 @@ in the recommendation service endpoints.
 """
 
 from typing import List, Optional, Dict, Any, Literal
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, validator, field_validator, ConfigDict
 from enum import Enum
 
 

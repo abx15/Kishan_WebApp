@@ -61,8 +61,7 @@ interface AppActions {
 }
 
 export const useAppStore = create<AppState & AppActions>()(
-  persist(
-    (set, get) => ({
+  (set, get) => ({
       // Initial state
       user: null,
       accessToken: null,
@@ -130,19 +129,8 @@ export const useAppStore = create<AppState & AppActions>()(
       setGlobalLoading: (loading) => set({ globalLoading: loading }),
       setGlobalError: (error) => set({ globalError: error }),
       clearGlobalError: () => set({ globalError: { hasError: false } }),
-    }),
-    {
-      name: 'agrobrain-store',
-      partialize: (state) => ({
-        accessToken: state.accessToken,
-        language: state.language,
-        settings: state.settings,
-        sidebarOpen: state.sidebarOpen,
-        theme: state.theme,
-      }),
-    }
-  )
-);
+    })
+  );
 
 // Selectors for common use cases
 export const useUser = () => useAppStore((state) => state.user);

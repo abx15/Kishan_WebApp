@@ -7,7 +7,7 @@ with proper validation for coordinates and weather data.
 
 from datetime import datetime
 from typing import Dict, Any, List, Optional
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, validator, field_validator
 
 
 class WeatherRequest(BaseModel):
