@@ -5,9 +5,17 @@ This module configures the FastAPI app with middleware, routers,
 lifecycle management, and global exception handlers.
 """
 
+import dns
 import time
 from contextlib import asynccontextmanager
 from typing import Dict, Any
+
+# Configure DNS for reliable MongoDB connection
+try:
+    dns.resolver.set_servers(['8.8.8.8', '8.8.4.4'])
+    print("DNS servers configured for MongoDB connection")
+except Exception as e:
+    print(f"DNS configuration failed: {e}")
 
 from fastapi import FastAPI, Request, Response, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -24,6 +32,7 @@ from app.core.redis import connect_redis, disconnect_redis, get_redis_health
 import firebase_admin
 from firebase_admin import credentials
 from app.routes.auth import router as auth_router
+from app.routes.weather import router as weather_router
 
 
 @asynccontextmanager
@@ -262,11 +271,11 @@ app.include_router(
     tags=["Authentication"]
 )
 
-# app.include_router(
-#     weather_router,
-#     prefix="/api/v1/weather",
-#     tags=["Weather"]
-# )
+app.include_router(
+    weather_router,
+    prefix="/api/v1",
+    tags=["Weather"]
+)
 
 # app.include_router(
 #     recommend_router,
