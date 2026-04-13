@@ -8,6 +8,13 @@ const config: Config = {
     "./app/**/*.{js,ts,jsx,tsx,mdx}",
   ],
   theme: {
+    container: {
+      center: true,
+      padding: "2rem",
+      screens: {
+        "2xl": "1400px",
+      },
+    },
     extend: {
       colors: {
         border: "hsl(var(--border))",
@@ -43,31 +50,21 @@ const config: Config = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-        // AgroBrain custom colors
         agro: {
           primary: "#16a34a",
-          light: "#dcfce7",
           dark: "#14532d",
+          light: "#dcfce7",
           accent: "#ca8a04",
-        },
-        success: "#16a34a",
-        warning: "#d97706",
-        danger: "#dc2626",
-      },
-      fontFamily: {
-        display: ["DM Sans", "sans-serif"],
-        body: ["Inter", "sans-serif"],
+        }
       },
       borderRadius: {
-        card: "12px",
-        button: "8px",
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
       },
-      boxShadow: {
-        card: "0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)",
-        hover: "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)",
+      fontFamily: {
+        display: ["var(--font-dm-sans)", "sans-serif"],
+        body: ["var(--font-inter)", "sans-serif"],
       },
       keyframes: {
         "accordion-down": {
@@ -78,10 +75,15 @@ const config: Config = {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: "0" },
         },
+        "fade-in": {
+          "0%": { opacity: "0", transform: "translateY(10px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" }
+        }
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "fade-in": "fade-in 0.5s ease-out forwards"
       },
     },
   },

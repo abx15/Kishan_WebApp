@@ -2,23 +2,35 @@
 
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
 import { 
   Cloud, 
   Droplets, 
   Sprout, 
   MessageCircle, 
-  MapPin,
-  Sun,
-  Wind,
-  Thermometer,
-  TrendingUp,
-  Users,
-  Shield,
-  Smartphone
+  TrendingUp, 
+  Shield, 
+  Smartphone,
+  ChevronRight,
+  Play
 } from 'lucide-react';
+import { motion } from 'framer-motion';
 import LanguageToggle from '@/components/shared/LanguageToggle';
+
+const fadeIn = {
+  initial: { opacity: 0, y: 20 },
+  animate: { opacity: 1, y: 0 },
+  transition: { duration: 0.6 }
+};
+
+const staggerContainer = {
+  animate: {
+    transition: {
+      staggerChildren: 0.1
+    }
+  }
+};
 
 export default function HomePage() {
   const router = useRouter();
@@ -26,279 +38,253 @@ export default function HomePage() {
   const features = [
     {
       icon: Cloud,
-      title: 'Weather Forecast',
-      description: 'Accurate 7-day weather predictions for your farm location',
-      color: 'text-blue-600'
+      title: 'Hyperlocal Weather',
+      description: 'Satellite-driven precision forecasts for your specific farm coordinates.',
+      color: 'bg-blue-500/10 text-blue-600'
     },
     {
       icon: Sprout,
-      title: 'Crop Recommendations',
-      description: 'AI-powered suggestions based on your soil and climate',
-      color: 'text-green-600'
+      title: 'Crop Intelligence',
+      description: 'AI-powered soil analysis and customized variety recommendations.',
+      color: 'bg-green-500/10 text-green-600'
     },
     {
       icon: MessageCircle,
-      title: 'AI Assistant',
-      description: 'Chat with agricultural expert in Hindi and English',
-      color: 'text-purple-600'
+      title: 'Multilingual Expert AI',
+      description: 'Get instant advice in Hindi, English, and 8+ regional languages.',
+      color: 'bg-purple-500/10 text-purple-600'
     },
     {
-      icon: Smartphone,
-      title: 'Voice Commands',
-      description: 'Use voice to get farming advice hands-free',
-      color: 'text-orange-600'
+      icon: TrendingUp,
+      title: 'Market Predictor',
+      description: 'Maximize profit with real-time crop price trends and future estimates.',
+      color: 'bg-orange-500/10 text-orange-600'
     }
   ];
 
-  const stats = [
-    { number: '50,000+', label: 'Farmers Using' },
-    { number: '95%', label: 'Accuracy Rate' },
-    { number: '24/7', label: 'AI Support' },
-    { number: '10+', label: 'Indian Languages' }
-  ];
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-blue-50 to-green-50">
-      {/* Header */}
-      <header className="bg-white/80 backdrop-blur-md shadow-sm border-b border-gray-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center">
-              <div className="p-2 bg-green-100 rounded-lg mr-3">
-                <Sprout className="h-6 w-6 text-green-600" />
+    <div className="min-h-screen bg-[#fff9eb] text-[#1e1c12] selection:bg-green-100">
+      {/* Background Decorative Elements */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden -z-10">
+        <div className="absolute top-[-10%] right-[-10%] w-[40%] h-[40%] bg-green-200/20 blur-[120px] rounded-full" />
+        <div className="absolute bottom-[-5%] left-[-5%] w-[30%] h-[30%] bg-orange-100/30 blur-[100px] rounded-full" />
+      </div>
+
+      {/* Navigation */}
+      <nav className="sticky top-0 z-50 bg-white/70 backdrop-blur-xl border-b border-[#006b2c]/10">
+        <div className="max-w-7xl mx-auto px-6 lg:px-8">
+          <div className="flex justify-between items-center h-20">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-gradient-to-br from-[#006b2c] to-[#00873a] rounded-xl shadow-lg shadow-green-900/20">
+                <Sprout className="h-6 w-6 text-white" />
               </div>
-              <h1 className="text-xl font-bold text-gray-900">AgroBrain AI</h1>
+              <span className="text-2xl font-bold tracking-tight text-[#1e1c12]">AgroBrain <span className="text-[#006b2c]">AI</span></span>
             </div>
-            <div className="flex items-center space-x-4">
+            
+            <div className="hidden md:flex items-center gap-8 text-sm font-medium">
+              <a href="#features" className="hover:text-[#006b2c] transition-colors">Features</a>
+              <a href="/about" className="hover:text-[#006b2c] transition-colors">About Us</a>
+              <a href="/contact" className="hover:text-[#006b2c] transition-colors">Support</a>
+            </div>
+
+            <div className="flex items-center gap-4">
               <LanguageToggle />
               <Button 
+                variant="ghost" 
                 onClick={() => router.push('/login')}
-                className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-medium transition-colors"
+                className="hidden sm:inline-flex text-[#1e1c12] hover:bg-green-50"
               >
-                Login
+                Sign In
+              </Button>
+              <Button 
+                onClick={() => router.push('/register')}
+                className="bg-gradient-to-br from-[#006b2c] to-[#00873a] hover:opacity-90 text-white px-6 rounded-xl shadow-lg shadow-green-900/10 transition-all active:scale-95"
+              >
+                Get Started
               </Button>
             </div>
           </div>
         </div>
-      </header>
+      </nav>
 
       {/* Hero Section */}
-      <section className="py-20 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-7xl mx-auto text-center">
-          <div className="mb-8">
-            <Badge className="bg-green-100 text-green-800 px-4 py-2 mb-6">
-              AI-Powered Farming Solution
-            </Badge>
-            <h1 className="text-5xl sm:text-7xl font-bold text-gray-900 mb-6 leading-tight">
-              Smart Farming with
-              <span className="block text-green-600 agro-gradient-text">AI Power</span>
-            </h1>
-            <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto leading-relaxed">
-              Get weather predictions, crop recommendations, and farming advice in your language. 
-              Designed specifically for Indian farmers.
-            </p>
-          </div>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button 
-              onClick={() => router.push('/login')}
-              className="bg-green-600 hover:bg-green-700 text-white px-8 py-4 rounded-lg text-lg font-medium transition-all transform hover:scale-105 shadow-lg"
+      <main>
+        <section className="relative pt-20 pb-32 px-6 lg:px-8">
+          <div className="max-w-7xl mx-auto text-center">
+            <motion.div 
+              {...fadeIn}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-green-100/50 border border-green-200/50 text-[#006b2c] text-sm font-semibold mb-8"
             >
-              Get Started Free
-            </Button>
-            <Button 
-              variant="outline"
-              onClick={() => router.push('/login')}
-              className="border-2 border-green-600 text-green-600 hover:bg-green-50 px-8 py-4 rounded-lg text-lg font-medium transition-all"
+              <Badge variant="outline" className="border-[#006b2c]/20 bg-white mr-1">New</Badge>
+              Empowering 50,000+ Indian Farmers
+            </motion.div>
+            
+            <motion.h1 
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.2 }}
+              className="text-5xl sm:text-7xl font-bold tracking-tight leading-[1.1] mb-8"
             >
-              Watch Demo
-            </Button>
-          </div>
-        </div>
-      </section>
+              The Science of Soil,<br />
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#006b2c] to-[#00873a]">The Power of AI.</span>
+            </motion.h1>
 
-      {/* Stats Section */}
-      <section className="py-16 bg-white/80 backdrop-blur-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
-            {stats.map((stat, index) => (
-              <div key={index} className="text-center p-6 bg-white rounded-xl shadow-sm">
-                <div className="text-4xl font-bold text-green-600 mb-2">{stat.number}</div>
-                <div className="text-gray-600 font-medium">{stat.label}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+            <motion.p 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 1, delay: 0.4 }}
+              className="text-xl text-[#3e4a3d] max-w-2xl mx-auto mb-12 leading-relaxed"
+            >
+              Transform your farming with satellite data, soil intelligence, and 
+              real-time expert advice. Localized for every Indian farmer.
+            </motion.p>
 
-      {/* Features Section */}
-      <section className="py-20 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl sm:text-5xl font-bold text-gray-900 mb-4">
-              Everything Your Farm Needs
-            </h2>
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-              From weather forecasts to crop advice, we've got you covered with AI-powered tools.
-            </p>
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.5, delay: 0.6 }}
+              className="flex flex-col sm:flex-row gap-5 justify-center"
+            >
+              <Button 
+                size="lg"
+                onClick={() => router.push('/register')}
+                className="h-16 px-10 text-lg bg-[#006b2c] hover:bg-[#00873a] text-white rounded-2xl shadow-2xl shadow-green-900/20 group"
+              >
+                Launch Dashboard
+                <ChevronRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
+              </Button>
+              <Button 
+                size="lg"
+                variant="outline"
+                className="h-16 px-10 text-lg border-2 border-[#006b2c]/20 hover:bg-green-50 rounded-2xl group text-[#006b2c]"
+              >
+                <div className="p-2 bg-green-100 rounded-full mr-3 group-hover:scale-110 transition-transform">
+                  <Play className="h-4 w-4 fill-[#006b2c]" />
+                </div>
+                Watch Video
+              </Button>
+            </motion.div>
           </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {features.map((feature, index) => (
-              <Card key={index} className="group hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2 border-0 bg-white">
-                <CardContent className="p-8 text-center">
-                  <div className="w-16 h-16 bg-gradient-to-br from-green-50 to-green-100 rounded-full flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform">
-                    <feature.icon className={`h-8 w-8 ${feature.color}`} />
-                  </div>
-                  <h3 className="text-xl font-bold text-gray-900 mb-3">{feature.title}</h3>
-                  <p className="text-gray-600 leading-relaxed">{feature.description}</p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </section>
+        </section>
 
-      {/* Weather Preview Section */}
-      <section className="py-20 bg-white/80 backdrop-blur-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-            <div>
-              <Badge className="bg-blue-100 text-blue-800 px-3 py-1 mb-4">Weather Intelligence</Badge>
-              <h2 className="text-4xl font-bold text-gray-900 mb-6">
-                Real-time Weather Data
-              </h2>
-              <p className="text-lg text-gray-600 mb-8 leading-relaxed">
-                Get hyperlocal weather predictions specific to your farm location. 
-                Plan your irrigation and farming activities with confidence.
-              </p>
-              <div className="grid grid-cols-2 gap-6">
-                <div className="flex items-center p-4 bg-red-50 rounded-lg">
-                  <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mr-4">
-                    <Thermometer className="h-6 w-6 text-red-500" />
-                  </div>
-                  <div>
-                    <div className="font-bold text-gray-900">Temperature</div>
-                    <div className="text-sm text-gray-600">Real-time data</div>
-                  </div>
-                </div>
-                <div className="flex items-center p-4 bg-blue-50 rounded-lg">
-                  <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mr-4">
-                    <Droplets className="h-6 w-6 text-blue-500" />
-                  </div>
-                  <div>
-                    <div className="font-bold text-gray-900">Humidity</div>
-                    <div className="text-sm text-gray-600">Precise readings</div>
-                  </div>
-                </div>
-                <div className="flex items-center p-4 bg-gray-50 rounded-lg">
-                  <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mr-4">
-                    <Wind className="h-6 w-6 text-gray-500" />
-                  </div>
-                  <div>
-                    <div className="font-bold text-gray-900">Wind Speed</div>
-                    <div className="text-sm text-gray-600">Updated hourly</div>
-                  </div>
-                </div>
-                <div className="flex items-center p-4 bg-yellow-50 rounded-lg">
-                  <div className="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center mr-4">
-                    <Sun className="h-6 w-6 text-yellow-500" />
-                  </div>
-                  <div>
-                    <div className="font-bold text-gray-900">UV Index</div>
-                    <div className="text-sm text-gray-600">Sun protection</div>
-                  </div>
-                </div>
-              </div>
+        {/* Features Section */}
+        <section id="features" className="py-24 bg-[#f4edde]/50 px-6 lg:px-8">
+          <div className="max-w-7xl mx-auto">
+            <div className="text-center mb-16">
+              <h2 className="text-4xl font-bold mb-4">Precision Tools for Modern Farming</h2>
+              <div className="w-20 h-1.5 bg-[#006b2c] mx-auto rounded-full" />
             </div>
-            <div className="bg-gradient-to-br from-blue-400 via-blue-500 to-green-400 rounded-3xl p-8 shadow-2xl transform hover:scale-105 transition-all">
-              <div className="text-center text-white">
-                <div className="text-8xl mb-6">Sun</div>
-                <div className="text-5xl font-bold mb-2">32°C</div>
-                <div className="text-xl mb-6 opacity-90">Partly Cloudy</div>
-                <div className="grid grid-cols-3 gap-4 text-sm bg-white/20 backdrop-blur-sm rounded-xl p-4">
-                  <div className="text-center">
-                    <div className="font-bold">Humidity</div>
-                    <div className="text-lg">65%</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="font-bold">Wind</div>
-                    <div className="text-lg">12 km/h</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="font-bold">UV</div>
-                    <div className="text-lg">7 (High)</div>
-                  </div>
+
+            <motion.div 
+              variants={staggerContainer}
+              initial="initial"
+              whileInView="animate"
+              viewport={{ once: true }}
+              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8"
+            >
+              {features.map((feature, i) => (
+                <motion.div key={i} variants={fadeIn}>
+                  <Card className="h-full border-0 bg-white/50 backdrop-blur shadow-sm hover:shadow-xl hover:-translate-y-2 transition-all duration-300 rounded-3xl overflow-hidden group">
+                    <CardContent className="p-8">
+                      <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform ${feature.color}`}>
+                        <feature.icon className="h-7 w-7" />
+                      </div>
+                      <h3 className="text-xl font-bold mb-3 group-hover:text-[#006b2c] transition-colors">{feature.title}</h3>
+                      <p className="text-sm text-[#3e4a3d] leading-relaxed">
+                        {feature.description}
+                      </p>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              ))}
+            </motion.div>
+          </div>
+        </section>
+
+        {/* Social Proof Stats */}
+        <section className="py-20 bg-white">
+          <div className="max-w-7xl mx-auto px-6 lg:px-8">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-12 text-center">
+              {[
+                { label: 'Registered Farmers', value: '50,000+' },
+                { label: 'Prediction Accuracy', value: '95%' },
+                { label: 'Indian Languages', value: '10+' },
+                { label: 'Response Time', value: '< 2s' }
+              ].map((stat, i) => (
+                <div key={i}>
+                  <div className="text-4xl font-extrabold text-[#006b2c] mb-2">{stat.value}</div>
+                  <div className="text-sm font-semibold text-[#6e7b6c] uppercase tracking-wider">{stat.label}</div>
                 </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* CTA Banner */}
+        <section className="py-24 px-6 lg:px-8">
+          <div className="max-w-7xl mx-auto">
+            <div className="relative rounded-[3rem] p-12 md:p-20 overflow-hidden bg-gradient-to-br from-[#006b2c] to-[#00873a] shadow-3xl shadow-green-900/30 text-center">
+              <div className="absolute top-0 right-0 w-96 h-96 bg-white/10 blur-[80px] rounded-full translate-x-1/2 -translate-y-1/2" />
+              <div className="absolute bottom-0 left-0 w-64 h-64 bg-black/10 blur-3xl rounded-full -translate-x-1/2 translate-y-1/2" />
+              
+              <div className="relative z-10">
+                <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">Start Your Digital Farm Today</h2>
+                <p className="text-lg text-white/80 mb-10 max-w-xl mx-auto">
+                  Join thousands of farmers across India who are optimizing their yield and reducing costs with AgroBrain.
+                </p>
+                <Button 
+                  size="lg"
+                  onClick={() => router.push('/register')}
+                  className="bg-white text-[#006b2c] hover:bg-green-50 px-12 py-7 h-auto text-xl font-bold rounded-2xl shadow-xl transition-all active:scale-95"
+                >
+                  Get Started Free
+                </Button>
               </div>
             </div>
           </div>
-        </div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-r from-green-600 to-green-700">
-        <div className="max-w-4xl mx-auto text-center">
-          <Badge className="bg-white/20 text-white px-4 py-2 mb-4">Get Started Today</Badge>
-          <h2 className="text-4xl font-bold text-white mb-4">
-            Ready to Transform Your Farming?
-          </h2>
-          <p className="text-xl text-green-100 mb-8 leading-relaxed">
-            Join thousands of farmers using AI to increase their yield and reduce costs.
-          </p>
-          <Button 
-            onClick={() => router.push('/login')}
-            className="bg-white text-green-600 hover:bg-green-50 px-8 py-4 rounded-lg text-lg font-bold transition-all transform hover:scale-105 shadow-lg"
-          >
-            Start Free Trial
-          </Button>
-        </div>
-      </section>
+        </section>
+      </main>
 
       {/* Footer */}
-      <footer className="bg-gray-900 text-white py-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-            <div>
-              <div className="flex items-center mb-6">
-                <div className="w-10 h-10 bg-green-500 rounded-lg flex items-center justify-center mr-3">
-                  <Sprout className="h-6 w-6 text-white" />
+      <footer className="bg-[#1e1c12] text-white pt-20 pb-10 px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-16 mb-20">
+            <div className="col-span-1 md:col-span-2">
+              <div className="flex items-center gap-3 mb-8">
+                <div className="p-2 bg-[#006b2c] rounded-lg">
+                  <Sprout className="h-6 w-6" />
                 </div>
-                <h3 className="text-xl font-bold">AgroBrain AI</h3>
+                <span className="text-2xl font-bold tracking-tight">AgroBrain AI</span>
               </div>
-              <p className="text-gray-400 leading-relaxed">
-                Smart farming solution for Indian farmers.
+              <p className="text-[#bdcaba] max-w-md leading-relaxed">
+                Empowering the backbone of Bharat with advanced satellite intelligence 
+                and neural-networks localized for every field.
               </p>
             </div>
+            
             <div>
-              <h4 className="font-bold mb-6 text-green-400">Features</h4>
-              <ul className="space-y-3 text-gray-400">
-                <li className="hover:text-white transition-colors cursor-pointer">Weather Forecast</li>
-                <li className="hover:text-white transition-colors cursor-pointer">Crop Advice</li>
-                <li className="hover:text-white transition-colors cursor-pointer">AI Assistant</li>
-                <li className="hover:text-white transition-colors cursor-pointer">Voice Commands</li>
-              </ul>
+              <h4 className="font-bold text-lg mb-8 uppercase tracking-widest text-[#00873a]">Resources</h4>
+              <nav className="flex flex-col gap-4 text-[#bdcaba]">
+                <a href="#" className="hover:text-white transition-colors">Weather Predictions</a>
+                <a href="#" className="hover:text-white transition-colors">Crop Intelligence</a>
+                <a href="#" className="hover:text-white transition-colors">Market Prices</a>
+                <a href="#" className="hover:text-white transition-colors">Expert Advice</a>
+              </nav>
             </div>
+
             <div>
-              <h4 className="font-bold mb-6 text-green-400">Support</h4>
-              <ul className="space-y-3 text-gray-400">
-                <li className="hover:text-white transition-colors cursor-pointer">Help Center</li>
-                <li className="hover:text-white transition-colors cursor-pointer">Contact Us</li>
-                <li className="hover:text-white transition-colors cursor-pointer">FAQs</li>
-                <li className="hover:text-white transition-colors cursor-pointer">Community</li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="font-bold mb-6 text-green-400">Company</h4>
-              <ul className="space-y-3 text-gray-400">
-                <li className="hover:text-white transition-colors cursor-pointer">About Us</li>
-                <li className="hover:text-white transition-colors cursor-pointer">Careers</li>
-                <li className="hover:text-white transition-colors cursor-pointer">Privacy Policy</li>
-                <li className="hover:text-white transition-colors cursor-pointer">Terms of Service</li>
-              </ul>
+              <h4 className="font-bold text-lg mb-8 uppercase tracking-widest text-[#00873a]">Company</h4>
+              <nav className="flex flex-col gap-4 text-[#bdcaba]">
+                <a href="/about" className="hover:text-white transition-colors">Our Story</a>
+                <a href="/contact" className="hover:text-white transition-colors">Contact Support</a>
+                <a href="#" className="hover:text-white transition-colors">Privacy Policy</a>
+                <a href="#" className="hover:text-white transition-colors">Terms of Use</a>
+              </nav>
             </div>
           </div>
-          <div className="border-t border-gray-800 mt-12 pt-8 text-center text-gray-400">
-            <p>&copy; 2026 AgroBrain AI. All rights reserved.</p>
+          
+          <div className="border-t border-white/5 pt-10 text-center text-sm text-gray-500">
+            <p>&copy; 2026 AgroBrain AI. Digital Agriculture for Bharat.</p>
           </div>
         </div>
       </footer>
