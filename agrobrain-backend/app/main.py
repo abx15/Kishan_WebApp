@@ -45,6 +45,8 @@ from app.routes.auth import router as auth_router
 from app.routes.weather import router as weather_router
 from app.ml.predictor import CropPredictor
 from app.routes.recommend import router as recommend_router
+from app.routes.chat import router as chat_router
+from app.routes.voice import router as voice_router
 
 
 @asynccontextmanager
@@ -306,17 +308,17 @@ app.include_router(
     tags=["Recommendations"]
 )
 
-# app.include_router(
-#     chat_router,
-#     prefix="/api/v1/chat",
-#     tags=["Chat"]
-# )
+app.include_router(
+    chat_router,
+    prefix="/api/v1",
+    tags=["Chat"]
+)
 
-# app.include_router(
-#     voice_router,
-#     prefix="/api/v1/voice",
-#     tags=["Voice"]
-# )
+app.include_router(
+    voice_router,
+    prefix="/api/v1",
+    tags=["Voice"]
+)
 
 
 if __name__ == "__main__":
