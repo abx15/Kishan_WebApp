@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useTranslations } from 'next-intl';
+import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -11,29 +11,29 @@ import { AlertBanner } from '@/components/dashboard/AlertBanner';
 import { DailyTipsCard } from '@/components/dashboard/DailyTipsCard';
 import { useLocation } from '@/hooks/useLocation';
 import { useWeather } from '@/hooks/useWeather';
-import { useUser } from '@/store/useAppStore';
+import { useUser, useLanguage } from '@/store/useAppStore';
 import { 
   Cloud, 
   Sprout, 
-  AlertTriangle, 
-  TrendingUp,
+  MessageCircle, 
+  Mic,
   MapPin,
   RefreshCw,
-  Calendar,
+  TrendingUp,
   Users
 } from 'lucide-react';
 
 export default function DashboardPage() {
-  const t = useTranslations();
   const user = useUser();
+  const language = useLanguage();
   const { location, getCurrentLocation, isLoading: locationLoading } = useLocation();
-  const { weatherData, isLoading: weatherLoading, error: weatherError, refetch } = useWeather(location);
+  const { weatherData, isLoading: weatherLoading, error: weatherError, refetch } = useWeather(location || undefined);
   
-  const [stats, setStats] = useState({
-    totalQueries: 0,
-    weatherQueries: 0,
-    cropRecommendations: 0,
-    chatSessions: 0,
+  const [stats] = useState({
+    totalQueries: 1234,
+    weatherQueries: 567,
+    cropRecommendations: 89,
+    chatSessions: 234,
   });
 
   useEffect(() => {
@@ -41,187 +41,212 @@ export default function DashboardPage() {
     if (!location && !locationLoading) {
       getCurrentLocation();
     }
-
-    // Load dashboard stats
-    setStats({
-      totalQueries: 1234,
-      weatherQueries: 567,
-      cropRecommendations: 89,
-      chatSessions: 234,
-    });
   }, [location, locationLoading, getCurrentLocation]);
 
   const quickActions = [
     {
-      title: 'Check Weather',
-      description: 'View current weather and forecast',
-      icon: Cloud,
-      href: '/dashboard/weather',
-      color: 'text-blue-600',
-    },
-    {
-      title: 'Get Crop Advice',
-      description: 'AI-powered crop recommendations',
-      icon: Sprout,
+      title: language === 'hi' ? 'ð Get Crop Advice' : 'ð Get Crop Advice',
+      description: language === 'hi' ? 'AI-powered crop recommendations' : 'AI-powered crop recommendations',
       href: '/dashboard/recommend',
-      color: 'text-green-600',
     },
     {
-      title: 'Chat Assistant',
-      description: 'Ask agricultural questions',
-      icon: Users,
+      title: language === 'hi' ? 'ð§ Irrigation Plan' : 'ð§ Irrigation Plan',
+      description: language === 'hi' ? 'Smart irrigation scheduling' : 'Smart irrigation scheduling',
+      href: '/dashboard/recommend#irrigation',
+    },
+    {
+      title: language === 'hi' ? 'ð¬ Ask AI' : 'ð¬ Ask AI',
+      description: language === 'hi' ? 'Chat with agricultural assistant' : 'Chat with agricultural assistant',
       href: '/dashboard/chat',
-      color: 'text-purple-600',
     },
     {
-      title: 'Voice Commands',
-      description: 'Control with voice',
-      icon: MapPin,
+      title: language === 'hi' ? 'ð Voice Query' : 'ð Voice Query',
+      description: language === 'hi' ? 'Use voice commands' : 'Use voice commands',
       href: '/dashboard/voice',
-      color: 'text-orange-600',
     },
   ];
 
-  return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">
-            Welcome back, {user?.name || 'Farmer'}!
-          </h1>
-          <p className="text-gray-600 mt-2">
-            Here's what's happening on your farm today
-          </p>
-        </div>
-        <div className="mt-4 sm:mt-0 flex items-center space-x-2">
-          {location && (
-            <Badge variant="outline" className="flex items-center">
-              <MapPin className="w-3 h-3 mr-1" />
-              {location.city}
-            </Badge>
-          )}
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={() => refetch()}
-            disabled={weatherLoading}
-          >
-            <RefreshCw className={`w-4 h-4 mr-2 ${weatherLoading ? 'animate-spin' : ''}`} />
-            Refresh
+  // ROW 1 — Location + Quick Weather (full width)
+  const renderLocationBar = () => (
+    <Card className="bg-gradient-to-r from-green-50 to-blue-50 border-green-200">
+      <CardContent className="p-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <div className="text-2xl">📍</div>
+            <div>
+              <div className="text-lg font-semibold text-gray-900">
+                {location ? `${location.village || location.district || 'Unknown'}, ${location.state || 'Unknown'}` : 'Loading location...'}
+              </div>
+              <div className="text-sm text-gray-600">
+                {language === 'hi' ? 'aapaki sthiti' : 'Your location'}
+              </div>
+            </div>
+          </div>
+          <Button variant="outline" size="sm">
+            {language === 'hi' ? 'badlein' : 'Change'}
           </Button>
         </div>
-      </div>
-
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Queries</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.totalQueries.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">+12% from last month</p>
-          </CardContent>
-        </Card>
         
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Weather Checks</CardTitle>
-            <Cloud className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.weatherQueries.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">+8% from last month</p>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Crop Recommendations</CardTitle>
-            <Sprout className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.cropRecommendations.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">+23% from last month</p>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Chat Sessions</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.chatSessions.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">+15% from last month</p>
-          </CardContent>
-        </Card>
-      </div>
+        {weatherData && (
+          <div className="mt-4 flex items-center space-x-6">
+            <div className="flex items-center space-x-3">
+              <div className="text-3xl">
+                {weatherData.current.condition.toLowerCase().includes('sunny') ? '☀️' : 
+                 weatherData.current.condition.toLowerCase().includes('rain') ? '🌧️' : '☁️'}
+              </div>
+              <div>
+                <div className="text-2xl font-bold">{Math.round(weatherData.current.tempC)}°C</div>
+                <div className="text-sm text-gray-600">{weatherData.current.description}</div>
+              </div>
+            </div>
+            <div className="flex space-x-4 text-sm">
+              <div className="flex items-center space-x-1">
+                <span>💧</span>
+                <span>{Math.round(weatherData.current.humidityPct)}%</span>
+              </div>
+              <div className="flex items-center space-x-1">
+                <span>💨</span>
+                <span>{Math.round(weatherData.current.windSpeedKmh)} km/h</span>
+              </div>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
 
-      {/* Weather and Alerts */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2">
-          <WeatherCard 
-            weatherData={weatherData} 
-            isLoading={weatherLoading} 
-            error={weatherError}
-          />
-        </div>
-        <div className="space-y-4">
-          <AlertBanner />
-          <DailyTipsCard />
-        </div>
-      </div>
-
-      {/* Crop Recommendations */}
-      <CropRecommendCard />
-
-      {/* Quick Actions */}
-      <div>
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">Quick Actions</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {quickActions.map((action, index) => (
-            <Card key={index} className="hover:shadow-md transition-shadow cursor-pointer">
-              <CardHeader>
-                <div className={`w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center mb-4`}>
-                  <action.icon className={`h-6 w-6 ${action.color}`} />
-                </div>
-                <CardTitle className="text-lg">{action.title}</CardTitle>
-                <CardDescription>{action.description}</CardDescription>
-              </CardHeader>
-            </Card>
-          ))}
-        </div>
-      </div>
-
-      {/* Recent Activity */}
+  // ROW 2 — 3 stat cards
+  const renderStatCards = () => (
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      {/* Today's Weather Card */}
       <Card>
         <CardHeader>
-          <CardTitle>Recent Activity</CardTitle>
-          <CardDescription>Your latest interactions with AgroBrain</CardDescription>
+          <CardTitle className="flex items-center">
+            <Cloud className="w-5 h-5 mr-2 text-blue-600" />
+            {language === 'hi' ? 'aaj ka mausam' : "Today's Weather"}
+          </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {[
-              { time: '2 hours ago', action: 'Checked weather forecast', icon: Cloud },
-              { time: '5 hours ago', action: 'Got crop recommendations', icon: Sprout },
-              { time: '1 day ago', action: 'Asked about pest control', icon: Users },
-              { time: '2 days ago', action: 'Used voice command', icon: MapPin },
-            ].map((activity, index) => (
-              <div key={index} className="flex items-center space-x-4">
-                <div className="w-2 h-2 bg-green-600 rounded-full"></div>
-                <activity.icon className="w-4 h-4 text-gray-400" />
-                <div className="flex-1">
-                  <p className="text-sm font-medium">{activity.action}</p>
-                  <p className="text-xs text-gray-500">{activity.time}</p>
+          {weatherData ? (
+            <div className="space-y-4">
+              <div className="text-4xl font-bold text-center">
+                {Math.round(weatherData.current.tempC)}°C
+              </div>
+              <div className="text-center">
+                <div className="text-lg">{weatherData.current.condition}</div>
+                <div className="text-sm text-gray-600">{weatherData.current.description}</div>
+              </div>
+              <div className="grid grid-cols-3 gap-2 text-sm">
+                <div className="text-center">
+                  <div className="text-gray-600">Feels like</div>
+                  <div className="font-semibold">{Math.round(weatherData.current.feelsLikeC)}°C</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-gray-600">Humidity</div>
+                  <div className="font-semibold">{Math.round(weatherData.current.humidityPct)}%</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-gray-600">UV Index</div>
+                  <div className="font-semibold">{Math.round(weatherData.current.uvIndex)}</div>
                 </div>
               </div>
-            ))}
-          </div>
+              <Link href="/dashboard/weather">
+                <Button variant="outline" className="w-full">
+                  {language === 'hi' ? 'purna bhavishyavani →' : 'Full Forecast →'}
+                </Button>
+              </Link>
+            </div>
+          ) : (
+            <div className="text-center py-8 text-gray-500">
+              {weatherLoading ? 'Loading weather...' : 'Weather data unavailable'}
+            </div>
+          )}
         </CardContent>
       </Card>
+
+      {/* Top Crop Recommendation Card */}
+      <CropRecommendCard />
+
+      {/* Daily AI Tip Card */}
+      <DailyTipsCard />
+    </div>
+  );
+
+  // ROW 3 — Alerts Banner (conditional)
+  const renderAlertsBanner = () => <AlertBanner />;
+
+  // ROW 4 — Quick Actions (2x2 grid)
+  const renderQuickActions = () => (
+    <div>
+      <h2 className="text-xl font-semibold text-gray-900 mb-4">
+        {language === 'hi' ? 'tej kriyaen' : 'Quick Actions'}
+      </h2>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {quickActions.map((action, index) => (
+          <Link key={index} href={action.href}>
+            <Card className="hover:shadow-md transition-shadow cursor-pointer h-full">
+              <CardContent className="p-6 text-center">
+                <div className="text-3xl mb-3">{action.title.split(' ')[0]}</div>
+                <div className="font-medium text-sm">{action.title.split(' ').slice(1).join(' ')}</div>
+                <div className="text-xs text-gray-600 mt-1">{action.description}</div>
+              </CardContent>
+            </Card>
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
+
+  // ROW 5 — 7-Day Forecast (horizontal scroll)
+  const render7DayForecast = () => {
+    if (!weatherData?.forecast) return null;
+
+    return (
+      <div>
+        <h2 className="text-xl font-semibold text-gray-900 mb-4">
+          {language === 'hi' ? '7 din ki bhavishyavani' : '7-Day Forecast'}
+        </h2>
+        <div className="flex space-x-4 overflow-x-auto pb-2 lg:grid lg:grid-cols-7 lg:overflow-x-hidden">
+          {weatherData.forecast.map((day, index) => {
+            const date = new Date(day.date);
+            const dayName = date.toLocaleDateString(language === 'hi' ? 'hi-IN' : 'en-US', { weekday: 'short' });
+            
+            return (
+              <Card key={index} className="flex-shrink-0 w-32 lg:flex-shrink lg:w-auto">
+                <CardContent className="p-4 text-center">
+                  <div className="font-medium text-sm mb-2">{dayName}</div>
+                  <div className="text-2xl mb-2">
+                    {day.condition.toLowerCase().includes('sunny') ? '☀️' : 
+                     day.condition.toLowerCase().includes('rain') ? '🌧️' : '☁️'}
+                  </div>
+                  <div className="text-sm font-semibold">{Math.round(day.tempMaxC)}°</div>
+                  <div className="text-xs text-gray-600">{Math.round(day.tempMinC)}°</div>
+                  <div className="text-xs text-blue-600 mt-1">{Math.round(day.rainProbabilityPct)}%</div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="space-y-6 max-w-7xl mx-auto">
+      {/* ROW 1 — Location + Quick Weather */}
+      {renderLocationBar()}
+      
+      {/* ROW 2 — 3 stat cards */}
+      {renderStatCards()}
+      
+      {/* ROW 3 — Alerts Banner */}
+      {renderAlertsBanner()}
+      
+      {/* ROW 4 — Quick Actions */}
+      {renderQuickActions()}
+      
+      {/* ROW 5 — 7-Day Forecast */}
+      {render7DayForecast()}
     </div>
   );
 }

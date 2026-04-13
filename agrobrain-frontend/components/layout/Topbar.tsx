@@ -14,16 +14,17 @@ import {
   Sun,
   Moon
 } from 'lucide-react';
-import { useUser, useLocation, setSidebarOpen } from '@/store/useAppStore';
+import { useUser, useLocation, useAppStore } from '@/store/useAppStore';
 import { LanguageToggle } from '@/components/shared/LanguageToggle';
 
 export function Topbar() {
   const user = useUser();
   const location = useLocation();
+  const { sidebarOpen, toggleSidebar } = useAppStore();
   const [notifications, setNotifications] = useState(3);
 
   const handleMenuToggle = () => {
-    setSidebarOpen(!useSidebarOpen.getState().sidebarOpen);
+    toggleSidebar();
   };
 
   return (
