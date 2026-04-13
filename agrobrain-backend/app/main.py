@@ -11,11 +11,12 @@ import time
 from contextlib import asynccontextmanager
 from typing import Dict, Any
 
-# Configure DNS for reliable MongoDB connection
+# Configure DNS for reliable MongoDB connection (Override as requested)
 try:
     import dns.resolver
-    dns.resolver.nameservers = ['8.8.8.8', '8.8.4.4']
-    print("DNS servers configured for MongoDB connection: 8.8.8.8, 8.8.4.4")
+    dns.resolver.default_resolver = dns.resolver.Resolver(configure=False)
+    dns.resolver.default_resolver.nameservers = ['8.8.8.8', '8.8.4.4']
+    print("DNS servers overridden for MongoDB connection: 8.8.8.8, 8.8.4.4")
 except Exception as e:
     print(f"DNS configuration failed: {e}")
     # Fallback: try to set DNS using system configuration
@@ -36,7 +37,7 @@ from slowapi.errors import RateLimitExceeded
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.core.config import settings
-from app.core.logger import logger
+from app.core.logger import _logger_config, logger
 from app.core.database import connect_db, disconnect_db, get_db_health
 from app.core.redis import connect_redis, disconnect_redis, get_redis_health
 import firebase_admin
@@ -153,7 +154,7 @@ async def log_requests(request: Request, call_next):
         duration_ms = (time.time() - start_time) * 1000
         
         # Log request
-        logger.log_request(
+        _logger_config.log_request(
             method=method,
             path=path,
             status_code=response.status_code,
@@ -168,7 +169,7 @@ async def log_requests(request: Request, call_next):
         duration_ms = (time.time() - start_time) * 1000
         
         # Log error
-        logger.log_request(
+        _logger_config.log_request(
             method=method,
             path=path,
             status_code=500,
