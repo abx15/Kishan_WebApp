@@ -46,7 +46,8 @@ class DatabaseManager:
                     serverSelectionTimeoutMS=5000,
                     connectTimeoutMS=10000,
                     retryWrites=True,
-                    w="majority"
+                    w="majority",
+                    tlsAllowInvalidCertificates=True
                 )
                 
                 # Test connection
@@ -72,12 +73,33 @@ class DatabaseManager:
                     logger.info(f"Retrying MongoDB connection in {delay} seconds...")
                     await asyncio.sleep(delay)
                 else:
+                    if settings.db_fallback:
+                        logger.warning("FAILED to connect to remote MongoDB. Falling back to MOCK DATABASE (mongomock).")
+                        logger.warning("NOTE: Data will NOT be persistent and will be lost on restart.")
+                        try:
+                            from mongomock_motor import AsyncMongoMockClient
+                            self.client = AsyncMongoMockClient()
+                            self.database = self.client[settings.mongodb_db_name]
+                            logger.info("Successfully initialized Mock MongoDB")
+                            return
+                        except ImportError:
+                            logger.error("mongomock-motor not installed. Fallback failed.")
+                            raise ConnectionFailure(f"Failed to connect to MongoDB and fallback failed.") from e
                     raise ConnectionFailure(
                         f"Failed to connect to MongoDB after {self._max_retries} attempts"
                     ) from e
             
             except Exception as e:
                 logger.error(f"Unexpected error connecting to MongoDB: {str(e)}")
+                if settings.db_fallback:
+                    logger.warning(f"Attempting mock fallback due to unexpected error: {e}")
+                    try:
+                        from mongomock_motor import AsyncMongoMockClient
+                        self.client = AsyncMongoMockClient()
+                        self.database = self.client[settings.mongodb_db_name]
+                        return
+                    except Exception:
+                        pass
                 raise
     
     async def disconnect(self) -> None:

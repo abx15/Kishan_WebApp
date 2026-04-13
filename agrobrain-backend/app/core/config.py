@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     app_name: str = Field(default="AgroBrain AI", description="Application name")
     app_version: str = Field(default="1.0.0", description="Application version")
     debug: bool = Field(default=False, description="Enable debug mode")
+    db_fallback: bool = Field(default=True, description="Enable fallback to mock DB if connection fails")
     secret_key: str = Field(..., description="JWT secret key")
     algorithm: str = Field(default="HS256", description="JWT algorithm")
     access_token_expire_minutes: int = Field(default=60, description="Access token expiration in minutes")
@@ -46,6 +47,12 @@ class Settings(BaseSettings):
     # Firebase Configuration
     firebase_project_id: str = Field(..., description="Firebase project ID")
     firebase_credentials_path: str = Field(..., description="Path to Firebase credentials file")
+    firebase_api_key: Optional[str] = Field(None, description="Firebase API Key")
+    firebase_auth_domain: Optional[str] = Field(None, description="Firebase Auth Domain")
+    firebase_storage_bucket: Optional[str] = Field(None, description="Firebase Storage Bucket")
+    firebase_messaging_sender_id: Optional[str] = Field(None, description="Firebase Messaging Sender ID")
+    firebase_app_id: Optional[str] = Field(None, description="Firebase App ID")
+    firebase_measurement_id: Optional[str] = Field(None, description="Firebase Measurement ID")
     
     # Rate Limiting Configuration
     rate_limit_per_minute: int = Field(default=60, description="Rate limit per minute")
