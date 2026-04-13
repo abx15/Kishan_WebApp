@@ -47,6 +47,8 @@ from app.ml.predictor import CropPredictor
 from app.routes.recommend import router as recommend_router
 from app.routes.chat import router as chat_router
 from app.routes.voice import router as voice_router
+from app.routes.admin import router as admin_router
+from app.core.scheduler import agro_scheduler
 
 
 @asynccontextmanager
@@ -83,6 +85,9 @@ async def lifespan(app: FastAPI):
                 logger.error(f"Failed to initialize Firebase Admin SDK: {e}")
                 logger.warning("Continuing without Firebase - some features may not work")
         
+        # Start Background Scheduler
+        await agro_scheduler.setup()
+        
         logger.info("AgroBrain AI backend started successfully")
         yield
         
@@ -94,6 +99,7 @@ async def lifespan(app: FastAPI):
     logger.info("Shutting down AgroBrain AI backend...")
     
     try:
+        await agro_scheduler.shutdown()
         await disconnect_redis()
         await disconnect_db()
         logger.info("AgroBrain AI backend shutdown complete")
@@ -238,8 +244,9 @@ async def health_check(request: Request):
         # Check database health
         db_healthy = await get_db_health()
         
-        # Check Redis health
+        # Check Redis health and stats
         redis_healthy = await get_redis_health()
+        cache_stats = await redis_manager.get_cache_stats()
         
         # Overall health status
         overall_healthy = db_healthy and redis_healthy
@@ -254,6 +261,7 @@ async def health_check(request: Request):
                 "database": "healthy" if db_healthy else "unhealthy",
                 "redis": "healthy" if redis_healthy else "unhealthy"
             },
+            "cache": cache_stats,
             "timestamp": time.time()
         }
         
@@ -318,6 +326,12 @@ app.include_router(
     voice_router,
     prefix="/api/v1",
     tags=["Voice"]
+)
+
+app.include_router(
+    admin_router,
+    prefix="/api/v1/admin",
+    tags=["Admin"]
 )
 
 

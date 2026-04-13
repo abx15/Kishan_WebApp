@@ -15,6 +15,15 @@ from redis.exceptions import ConnectionError, RedisError
 from app.core.config import settings
 from app.core.logger import logger
 
+# CACHE KEY CONSTANTS
+WEATHER_CACHE = "weather:{lat}:{lng}"            # TTL: 600s (10 min)
+RECO_CACHE = "reco:{soil_hash}:{season}"          # TTL: 3600s (1 hr)
+AI_QUERY_CACHE = "ai:{query_hash}"                # TTL: 3600s (1 hr)
+DAILY_TIPS_CACHE = "tips:{user_id}:{date}"        # TTL: till midnight
+OTP_RATE_LIMIT = "otp_rl:{phone}"                 # TTL: 600s
+SESSION_CACHE = "session:{user_id}"               # TTL: 3600s
+ALERT_CACHE = "alerts:{lat}:{lng}"               # TTL: 1800s (30 min)
+
 
 class RedisManager:
     """Redis connection manager with caching utilities and fallback handling."""
@@ -246,6 +255,60 @@ class RedisManager:
         except Exception as e:
             logger.log_cache_operation("delete_pattern", pattern, error=str(e))
             return 0
+
+    # SPECIALIZED HELPERS
+    async def set_weather_cache(self, lat: float, lng: float, data: Dict[str, Any]) -> bool:
+        """Store weather data in JSON, TTL 600s."""
+        # Round to 2 decimals for city-level precision
+        lat_r, lng_r = round(lat, 2), round(lng, 2)
+        key = WEATHER_CACHE.format(lat=f"{lat_r:.2f}", lng=f"{lng_r:.2f}")
+        return await self.set_cache(key, data, ttl=600)
+
+    async def get_weather_cache(self, lat: float, lng: float) -> Optional[Dict[str, Any]]:
+        """Return parsed weather dict or None."""
+        lat_r, lng_r = round(lat, 2), round(lng, 2)
+        key = WEATHER_CACHE.format(lat=f"{lat_r:.2f}", lng=f"{lng_r:.2f}")
+        return await self.get_cache(key)
+
+    async def set_reco_cache(self, soil_hash: str, season: str, data: Dict[str, Any]) -> bool:
+        """Store recommendation data, TTL 3600s."""
+        key = RECO_CACHE.format(soil_hash=soil_hash, season=season)
+        return await self.set_cache(key, data, ttl=3600)
+
+    async def get_reco_cache(self, soil_hash: str, season: str) -> Optional[Dict[str, Any]]:
+        """Return parsed recommendation dict or None."""
+        key = RECO_CACHE.format(soil_hash=soil_hash, season=season)
+        return await self.get_cache(key)
+
+    async def increment_otp_attempts(self, phone: str) -> int:
+        """Increment OTP attempts, returns count, sets TTL on first call."""
+        if not self.is_available():
+            return 0
+        key = OTP_RATE_LIMIT.format(phone=phone)
+        try:
+            count = await self.redis.incr(key)
+            if count == 1:
+                await self.redis.expire(key, 600)
+            return count
+        except Exception as e:
+            logger.error(f"Error incrementing OTP attempts: {str(e)}")
+            return 0
+
+    async def get_cache_stats(self) -> Dict[str, Any]:
+        """Return cache health stats for /health endpoint."""
+        if not self.is_available():
+            return {"status": "unavailable"}
+        try:
+            info = await self.redis.info()
+            keyspace = await self.redis.dbsize()
+            return {
+                "total_keys": keyspace,
+                "memory_used": info.get("used_memory_human"),
+                "hit_rate": f"{(float(info.get('keyspace_hits', 0)) / (float(info.get('keyspace_hits', 0)) + float(info.get('keyspace_misses', 1))) * 100):.2f}%"
+            }
+        except Exception as e:
+            logger.error(f"Error getting cache stats: {str(e)}")
+            return {"status": "error", "message": str(e)}
 
 
 # Global Redis manager instance
