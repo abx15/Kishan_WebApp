@@ -167,8 +167,15 @@ export default function LoginPage() {
             </div>
           )}
 
-          <div className="text-center text-sm text-gray-600 mt-6">
-            <p>Don't have an account? Contact support</p>
+          <div className="text-center text-sm text-gray-600">
+            <p>Don't have an account?{' '}
+              <button 
+                onClick={() => router.push('/register')}
+                className="text-green-600 hover:text-green-700 font-medium"
+              >
+                Register here
+              </button>
+            </p>
             <p className="mt-1">Demo: Use 9876543210 and OTP 123456</p>
           </div>
         </CardContent>
