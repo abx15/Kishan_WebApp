@@ -1,288 +1,237 @@
 """
-Training script for Crop Recommendation Model.
-
-This script trains an XGBoost classifier on the Crop Recommendation Dataset
-and saves the trained model, scaler, and label encoder for use in production.
+AgroBrain AI - Crop Recommendation Model Training
+==================================================
+Dataset  : Crop Recommendation Dataset (Kaggle)
+Model    : XGBoost Classifier
+Features : N, P, K, temperature, humidity, ph, rainfall
+Target   : crop (22 classes)
+Expected : ~99% accuracy
 """
 
 import os
 import json
-import logging
+import warnings
 from datetime import datetime
-from typing import Dict, Any
 
-import pandas as pd
-import numpy as np
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler, LabelEncoder
-from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
-import xgboost as xgb
 import joblib
+import numpy as np
+import pandas as pd
+from sklearn.model_selection import train_test_split, cross_val_score, StratifiedKFold
+from sklearn.preprocessing import StandardScaler, LabelEncoder
+from sklearn.metrics import (
+    accuracy_score,
+    classification_report,
+    confusion_matrix,
+)
+from xgboost import XGBClassifier
 
-# Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
+warnings.filterwarnings("ignore")
+
+# CONFIG
+DATA_PATH    = "data/Crop_recommendation.csv"
+MODEL_DIR    = "app/ml"
+MODEL_PATH   = os.path.join(MODEL_DIR, "crop_model.pkl")
+SCALER_PATH  = os.path.join(MODEL_DIR, "scaler.pkl")
+ENCODER_PATH = os.path.join(MODEL_DIR, "label_encoder.pkl")
+INFO_PATH    = os.path.join(MODEL_DIR, "model_info.json")
+
+FEATURES = ["N", "P", "K", "temperature", "humidity", "ph", "rainfall"]
+TARGET   = "label"
+
+RANDOM_STATE = 42
+TEST_SIZE    = 0.2
+
+XGBOOST_PARAMS = {
+    "n_estimators"    : 300,
+    "max_depth"       : 6,
+    "learning_rate"   : 0.1,
+    "subsample"       : 0.8,
+    "colsample_bytree": 0.8,
+    "use_label_encoder": False,
+    "eval_metric"     : "mlogloss",
+    "random_state"    : RANDOM_STATE,
+    "n_jobs"          : -1,
+}
 
 
-def load_dataset(csv_path: str = "Crop_Recommendation_Dataset.csv") -> pd.DataFrame:
-    """
-    Load the crop recommendation dataset.
-    
-    Args:
-        csv_path: Path to the CSV file
-        
-    Returns:
-        Loaded DataFrame
-    """
-    try:
-        # Try to download from a public source if file doesn't exist
-        if not os.path.exists(csv_path):
-            logger.info("Dataset not found locally. You can download it from:")
-            logger.info("https://www.kaggle.com/datasets/atharvaingle/crop-recommendation-dataset")
-            logger.info("Or use the provided sample data generator")
-            raise FileNotFoundError(f"Dataset file {csv_path} not found")
-        
-        df = pd.read_csv(csv_path)
-        logger.info(f"Dataset loaded successfully. Shape: {df.shape}")
-        return df
-        
-    except Exception as e:
-        logger.error(f"Failed to load dataset: {str(e)}")
-        raise
-
-
-def generate_sample_dataset(csv_path: str = "Crop_Recommendation_Dataset.csv") -> pd.DataFrame:
-    """
-    Generate a sample crop recommendation dataset for testing.
-    
-    Args:
-        csv_path: Path to save the generated dataset
-        
-    Returns:
-        Generated DataFrame
-    """
-    logger.info("Generating sample crop recommendation dataset...")
-    
-    # Define crop types and their typical requirements
-    crop_data = {
-        'Rice': {'N': (80, 120), 'P': (30, 60), 'K': (30, 60), 'ph': (5.5, 7.0), 'temp': (22, 32), 'humidity': (70, 90), 'rainfall': (150, 300)},
-        'Wheat': {'N': (70, 110), 'P': (25, 50), 'K': (25, 50), 'ph': (6.0, 7.5), 'temp': (15, 25), 'humidity': (50, 70), 'rainfall': (50, 150)},
-        'Maize': {'N': (90, 130), 'P': (35, 65), 'K': (35, 65), 'ph': (5.8, 7.2), 'temp': (18, 30), 'humidity': (60, 80), 'rainfall': (80, 200)},
-        'Cotton': {'N': (60, 100), 'P': (20, 45), 'K': (20, 45), 'ph': (6.0, 8.0), 'temp': (20, 32), 'humidity': (40, 60), 'rainfall': (50, 120)},
-        'Sugarcane': {'N': (100, 150), 'P': (40, 70), 'K': (40, 70), 'ph': (6.0, 7.5), 'temp': (20, 30), 'humidity': (65, 85), 'rainfall': (120, 250)},
-        'Pulses': {'N': (20, 50), 'P': (20, 40), 'K': (20, 40), 'ph': (6.0, 7.0), 'temp': (18, 28), 'humidity': (45, 65), 'rainfall': (40, 100)},
-        'Millets': {'N': (40, 80), 'P': (15, 35), 'K': (15, 35), 'ph': (6.5, 8.0), 'temp': (25, 35), 'humidity': (30, 50), 'rainfall': (30, 80)},
-        'Barley': {'N': (50, 90), 'P': (20, 40), 'K': (20, 40), 'ph': (6.5, 8.0), 'temp': (12, 22), 'humidity': (40, 60), 'rainfall': (30, 100)},
-        'Groundnut': {'N': (40, 80), 'P': (25, 50), 'K': (25, 50), 'ph': (5.5, 7.0), 'temp': (22, 32), 'humidity': (50, 70), 'rainfall': (80, 150)},
-        'Soybean': {'N': (30, 70), 'P': (20, 45), 'K': (20, 45), 'ph': (6.0, 7.5), 'temp': (20, 30), 'humidity': (55, 75), 'rainfall': (70, 140)},
-        'Mustard': {'N': (60, 100), 'P': (25, 50), 'K': (25, 50), 'ph': (6.0, 7.5), 'temp': (15, 25), 'humidity': (40, 60), 'rainfall': (40, 100)},
-        'Tomato': {'N': (80, 120), 'P': (30, 60), 'K': (30, 60), 'ph': (6.0, 7.0), 'temp': (18, 28), 'humidity': (60, 80), 'rainfall': (60, 120)},
-        'Potato': {'N': (100, 150), 'P': (40, 70), 'K': (40, 70), 'ph': (5.0, 6.5), 'temp': (15, 25), 'humidity': (70, 90), 'rainfall': (80, 150)},
-        'Onion': {'N': (70, 110), 'P': (25, 50), 'K': (25, 50), 'ph': (6.0, 7.0), 'temp': (15, 25), 'humidity': (60, 80), 'rainfall': (50, 100)},
-        'Garlic': {'N': (60, 100), 'P': (20, 45), 'K': (20, 45), 'ph': (6.0, 7.5), 'temp': (12, 22), 'humidity': (50, 70), 'rainfall': (40, 80)},
-        'Cabbage': {'N': (90, 130), 'P': (35, 65), 'K': (35, 65), 'ph': (6.0, 7.0), 'temp': (15, 25), 'humidity': (65, 85), 'rainfall': (70, 140)},
-        'Cauliflower': {'N': (80, 120), 'P': (30, 60), 'K': (30, 60), 'ph': (6.0, 7.0), 'temp': (15, 25), 'humidity': (60, 80), 'rainfall': (60, 120)},
-        'Chilli': {'N': (70, 110), 'P': (25, 50), 'K': (25, 50), 'ph': (6.0, 7.5), 'temp': (20, 30), 'humidity': (55, 75), 'rainfall': (80, 150)},
-        'Brinjal': {'N': (80, 120), 'P': (30, 60), 'K': (30, 60), 'ph': (6.0, 7.0), 'temp': (22, 32), 'humidity': (65, 85), 'rainfall': (100, 180)},
-        'Peas': {'N': (40, 80), 'P': (20, 40), 'K': (20, 40), 'ph': (6.0, 7.0), 'temp': (12, 20), 'humidity': (50, 70), 'rainfall': (40, 80)},
-        'Lentil': {'N': (30, 60), 'P': (15, 35), 'K': (15, 35), 'ph': (6.0, 7.5), 'temp': (18, 25), 'humidity': (45, 65), 'rainfall': (35, 70)},
-        'Gram': {'N': (25, 55), 'P': (15, 30), 'K': (15, 30), 'ph': (6.5, 8.0), 'temp': (20, 30), 'humidity': (40, 60), 'rainfall': (30, 60)}
-    }
-    
-    data = []
-    samples_per_crop = 100
-    
-    for crop, params in crop_data.items():
-        for _ in range(samples_per_crop):
-            row = {
-                'N': np.random.uniform(params['N'][0], params['N'][1]),
-                'P': np.random.uniform(params['P'][0], params['P'][1]),
-                'K': np.random.uniform(params['K'][0], params['K'][1]),
-                'ph': np.random.uniform(params['ph'][0], params['ph'][1]),
-                'temperature': np.random.uniform(params['temp'][0], params['temp'][1]),
-                'humidity': np.random.uniform(params['humidity'][0], params['humidity'][1]),
-                'rainfall': np.random.uniform(params['rainfall'][0], params['rainfall'][1]),
-                'label': crop
-            }
-            data.append(row)
-    
-    df = pd.DataFrame(data)
-    df.to_csv(csv_path, index=False)
-    logger.info(f"Sample dataset generated with {len(df)} samples and saved to {csv_path}")
+# STEP 1: LOAD DATA
+def load_data(path: str) -> pd.DataFrame:
+    print(f"\n Loading dataset from: {path}")
+    df = pd.read_csv(path)
+    print(f"   Shape      : {df.shape}")
+    print(f"   Columns    : {list(df.columns)}")
+    print(f"   Crops      : {df[TARGET].nunique()} classes")
+    print(f"   Null values: {df.isnull().sum().sum()}")
     return df
 
 
-def preprocess_data(df: pd.DataFrame) -> tuple:
-    """
-    Preprocess the dataset for training.
-    
-    Args:
-        df: Input DataFrame
-        
-    Returns:
-        Tuple of (X, y, scaler, label_encoder)
-    """
-    # Separate features and target
-    feature_columns = ['N', 'P', 'K', 'ph', 'temperature', 'humidity', 'rainfall']
-    X = df[feature_columns].copy()
-    y = df['label'].copy()
-    
-    # Initialize and fit label encoder
-    label_encoder = LabelEncoder()
-    y_encoded = label_encoder.fit_transform(y)
-    
-    # Initialize and fit scaler
-    scaler = StandardScaler()
-    X_scaled = scaler.fit_transform(X)
-    
-    logger.info(f"Data preprocessing completed")
-    logger.info(f"Features: {feature_columns}")
-    logger.info(f"Number of classes: {len(label_encoder.classes_)}")
-    logger.info(f"Classes: {list(label_encoder.classes_)}")
-    
-    return X_scaled, y_encoded, scaler, label_encoder
+# STEP 2: PREPROCESS
+def preprocess(df: pd.DataFrame):
+    print("\n Preprocessing...")
 
+    X = df[FEATURES].copy()
+    y = df[TARGET].copy()
 
-def train_model(X_train, y_train, X_test, y_test) -> tuple:
-    """
-    Train XGBoost classifier.
-    
-    Args:
-        X_train, y_train: Training data
-        X_test, y_test: Test data
-        
-    Returns:
-        Tuple of (model, accuracy, classification_report)
-    """
-    # Initialize XGBoost classifier
-    model = xgb.XGBClassifier(
-        n_estimators=200,
-        max_depth=6,
-        learning_rate=0.1,
-        random_state=42,
-        n_jobs=-1,
-        objective='multi:softprob',
-        eval_metric='mlogloss'
+    # Label encode target
+    le = LabelEncoder()
+    y_encoded = le.fit_transform(y)
+    print(f"   Classes    : {list(le.classes_)}")
+
+    # Train/test split (stratified)
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y_encoded,
+        test_size=TEST_SIZE,
+        random_state=RANDOM_STATE,
+        stratify=y_encoded
     )
-    
-    # Train the model
-    logger.info("Training XGBoost model...")
-    model.fit(X_train, y_train)
-    
-    # Make predictions
-    y_pred = model.predict(X_test)
-    
-    # Calculate metrics
-    accuracy = accuracy_score(y_test, y_pred)
-    report = classification_report(y_test, y_pred, output_dict=True)
-    
-    logger.info(f"Model training completed")
-    logger.info(f"Test Accuracy: {accuracy:.4f}")
-    
-    return model, accuracy, report
+    print(f"   Train size : {len(X_train)}")
+    print(f"   Test size  : {len(X_test)}")
+
+    # Scale features
+    scaler = StandardScaler()
+    X_train_scaled = scaler.fit_transform(X_train)
+    X_test_scaled  = scaler.transform(X_test)
+
+    return X_train_scaled, X_test_scaled, y_train, y_test, scaler, le
 
 
-def save_models(model, scaler, label_encoder, model_info: Dict[str, Any], 
-                model_dir: str = "app/ml/models"):
-    """
-    Save trained models and metadata.
-    
-    Args:
-        model: Trained XGBoost model
-        scaler: Fitted scaler
-        label_encoder: Fitted label encoder
-        model_info: Model metadata
-        model_dir: Directory to save models
-    """
-    # Create directory if it doesn't exist
-    os.makedirs(model_dir, exist_ok=True)
-    
-    # Save models
-    joblib.dump(model, os.path.join(model_dir, "crop_model.pkl"))
-    joblib.dump(scaler, os.path.join(model_dir, "scaler.pkl"))
-    joblib.dump(label_encoder, os.path.join(model_dir, "label_encoder.pkl"))
-    
-    # Save model info
-    with open(os.path.join(model_dir, "model_info.json"), 'w') as f:
+# STEP 3: TRAIN MODEL
+def train_model(X_train, y_train):
+    print("\n Training XGBoost model...")
+    print(f"   Params: {XGBOOST_PARAMS}")
+
+    model = XGBClassifier(**XGBOOST_PARAMS)
+    model.fit(
+        X_train, y_train,
+        verbose=False
+    )
+
+    print("   Training complete!")
+    return model
+
+
+# STEP 4: EVALUATE
+def evaluate_model(model, X_train, X_test, y_train, y_test, le):
+    print("\n Evaluating model...")
+
+    # Test accuracy
+    y_pred     = model.predict(X_test)
+    test_acc   = accuracy_score(y_test, y_pred)
+    train_acc  = accuracy_score(y_train, model.predict(X_train))
+
+    print(f"   Train Accuracy : {train_acc * 100:.2f}%")
+    print(f"   Test Accuracy  : {test_acc * 100:.2f}%")
+
+    # Cross-validation (5-fold)
+    print("\n   Running 5-fold cross-validation...")
+    cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=RANDOM_STATE)
+    cv_scores = cross_val_score(model, X_test, y_test, cv=cv, scoring="accuracy")
+    print(f"   CV Mean  : {cv_scores.mean() * 100:.2f}%")
+    print(f"   CV Std   : {cv_scores.std() * 100:.2f}%")
+
+    # Classification report
+    print("\n Classification Report:")
+    print(classification_report(
+        y_test, y_pred,
+        target_names=le.classes_
+    ))
+
+    # Top feature importances
+    fi = pd.Series(
+        model.feature_importances_,
+        index=FEATURES
+    ).sort_values(ascending=False)
+    print("\n Feature Importances:")
+    for feat, imp in fi.items():
+        bar = "" * int(imp * 50)
+        print(f"   {feat:12s}: {bar} {imp:.4f}")
+
+    return {
+        "test_accuracy"    : round(float(test_acc), 4),
+        "train_accuracy"   : round(float(train_acc), 4),
+        "cv_mean_accuracy" : round(float(cv_scores.mean()), 4),
+        "cv_std"           : round(float(cv_scores.std()), 4),
+    }
+
+
+# STEP 5: SAVE ARTIFACTS
+def save_artifacts(model, scaler, le, metrics: dict, df: pd.DataFrame):
+    print(f"\n Saving model artifacts to: {MODEL_DIR}/")
+    os.makedirs(MODEL_DIR, exist_ok=True)
+
+    joblib.dump(model,  MODEL_PATH,   compress=3)
+    joblib.dump(scaler, SCALER_PATH,  compress=3)
+    joblib.dump(le,     ENCODER_PATH, compress=3)
+
+    model_info = {
+        "version"          : "v1.0.0",
+        "trained_on"       : datetime.now().isoformat(),
+        "dataset_rows"     : int(len(df)),
+        "features"         : FEATURES,
+        "classes"          : list(le.classes_),
+        "num_classes"      : int(le.classes_.shape[0]),
+        "test_accuracy"    : metrics["test_accuracy"],
+        "train_accuracy"   : metrics["train_accuracy"],
+        "cv_mean_accuracy" : metrics["cv_mean_accuracy"],
+        "cv_std"           : metrics["cv_std"],
+        "xgboost_params"   : XGBOOST_PARAMS,
+    }
+    with open(INFO_PATH, "w") as f:
         json.dump(model_info, f, indent=2)
-    
-    logger.info(f"Models saved to {model_dir}")
-    logger.info(f"- crop_model.pkl")
-    logger.info(f"- scaler.pkl")
-    logger.info(f"- label_encoder.pkl")
-    logger.info(f"- model_info.json")
+
+    print(f"   crop_model.pkl    saved ({os.path.getsize(MODEL_PATH) // 1024} KB)")
+    print(f"   scaler.pkl        saved")
+    print(f"   label_encoder.pkl saved")
+    print(f"   model_info.json   saved")
 
 
+# STEP 6: QUICK INFERENCE TEST
+def test_inference(model, scaler, le):
+    print("\n Quick inference test...")
+
+    # Sample: conditions good for rice
+    sample = np.array([[90, 42, 43, 20.8, 82.0, 6.5, 202.9]])
+    sample_scaled = scaler.transform(sample)
+
+    proba     = model.predict_proba(sample_scaled)[0]
+    top3_idx  = np.argsort(proba)[::-1][:3]
+
+    print("   Input: N=90, P=42, K=43, temp=20.8°C, humidity=82%, pH=6.5, rainfall=202.9mm")
+    print("   Top 3 Predictions:")
+    for rank, idx in enumerate(top3_idx, 1):
+        crop_name = le.classes_[idx]
+        conf      = proba[idx] * 100
+        print(f"   {rank}. {crop_name:15s}: {conf:.1f}%")
+
+
+# MAIN
 def main():
-    """Main training pipeline."""
-    logger.info("Starting Crop Recommendation Model Training")
-    
-    # Configuration
-    csv_path = "Crop_Recommendation_Dataset.csv"
-    model_dir = "app/ml/models"
-    
-    try:
-        # Load or generate dataset
-        try:
-            df = load_dataset(csv_path)
-        except FileNotFoundError:
-            logger.info("Generating sample dataset for demonstration...")
-            df = generate_sample_dataset(csv_path)
-        
-        # Preprocess data
-        X_scaled, y_encoded, scaler, label_encoder = preprocess_data(df)
-        
-        # Split data
-        X_train, X_test, y_train, y_test = train_test_split(
-            X_scaled, y_encoded, test_size=0.2, random_state=42, stratify=y_encoded
-        )
-        
-        logger.info(f"Train set size: {X_train.shape[0]}")
-        logger.info(f"Test set size: {X_test.shape[0]}")
-        
-        # Train model
-        model, accuracy, report = train_model(X_train, y_train, X_test, y_test)
-        
-        # Prepare model info
-        model_info = {
-            'version': '1.0.0',
-            'accuracy': round(accuracy, 4),
-            'trained_on': datetime.now().isoformat(),
-            'features': ['N', 'P', 'K', 'ph', 'temperature', 'humidity', 'rainfall'],
-            'classes': list(label_encoder.classes_),
-            'num_classes': len(label_encoder.classes_),
-            'model_type': 'XGBoostClassifier',
-            'hyperparameters': {
-                'n_estimators': 200,
-                'max_depth': 6,
-                'learning_rate': 0.1,
-                'random_state': 42
-            },
-            'dataset_info': {
-                'total_samples': len(df),
-                'train_samples': len(X_train),
-                'test_samples': len(X_test),
-                'test_accuracy': round(accuracy, 4)
-            }
-        }
-        
-        # Save models
-        save_models(model, scaler, label_encoder, model_info, model_dir)
-        
-        # Print final results
-        logger.info("=" * 50)
-        logger.info("TRAINING COMPLETED SUCCESSFULLY")
-        logger.info("=" * 50)
-        logger.info(f"Model Accuracy: {accuracy:.4f}")
-        logger.info(f"Number of Crop Classes: {len(label_encoder.classes_)}")
-        logger.info(f"Models saved in: {model_dir}")
-        logger.info("=" * 50)
-        
-        return model_info
-        
-    except Exception as e:
-        logger.error(f"Training failed: {str(e)}")
-        raise
+    print("=" * 55)
+    print("  AgroBrain AI - Crop Recommendation Model")
+    print("=" * 55)
+
+    # 1. Load
+    df = load_data(DATA_PATH)
+
+    # 2. Preprocess
+    X_train, X_test, y_train, y_test, scaler, le = preprocess(df)
+
+    # 3. Train
+    model = train_model(X_train, y_train)
+
+    # 4. Evaluate
+    metrics = evaluate_model(model, X_train, X_test, y_train, y_test, le)
+
+    # 5. Save
+    save_artifacts(model, scaler, le, metrics, df)
+
+    # 6. Test
+    test_inference(model, scaler, le)
+
+    print("\n" + "=" * 55)
+    print(f"  Done! Accuracy: {metrics['test_accuracy'] * 100:.2f}%")
+    print("  Artifacts ready for FastAPI integration")
+    print("=" * 55)
 
 
 if __name__ == "__main__":
