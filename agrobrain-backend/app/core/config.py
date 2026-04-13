@@ -81,6 +81,11 @@ class Settings(BaseSettings):
     def is_development(self) -> bool:
         """Check if running in development mode."""
         return self.debug
+    
+    @property
+    def jwt_secret_key(self) -> str:
+        """Get JWT secret key."""
+        return self.secret_key
 
 
 @lru_cache()

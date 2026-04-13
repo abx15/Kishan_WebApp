@@ -21,6 +21,9 @@ from app.core.config import settings
 from app.core.logger import logger
 from app.core.database import connect_db, disconnect_db, get_db_health
 from app.core.redis import connect_redis, disconnect_redis, get_redis_health
+import firebase_admin
+from firebase_admin import credentials
+from app.routes.auth import router as auth_router
 
 
 @asynccontextmanager
@@ -35,6 +38,16 @@ async def lifespan(app: FastAPI):
         
         # Connect to Redis
         await connect_redis()
+        
+        # Initialize Firebase Admin SDK
+        if not firebase_admin._apps:
+            try:
+                cred = credentials.Certificate(settings.firebase_credentials_path)
+                firebase_admin.initialize_app(cred)
+                logger.info("Firebase Admin SDK initialized successfully")
+            except Exception as e:
+                logger.error(f"Failed to initialize Firebase Admin SDK: {str(e)}")
+                raise
         
         logger.info("AgroBrain AI backend started successfully")
         yield
@@ -242,14 +255,12 @@ async def root(request: Request):
     }
 
 
-# Include routers (to be implemented in future phases)
-# These will be added as we create the respective modules
-
-# app.include_router(
-#     auth_router,
-#     prefix="/api/v1/auth",
-#     tags=["Authentication"]
-# )
+# Include routers
+app.include_router(
+    auth_router,
+    prefix="/api/v1",
+    tags=["Authentication"]
+)
 
 # app.include_router(
 #     weather_router,
