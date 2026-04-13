@@ -1,40 +1,48 @@
 import { useState, useEffect, useRef } from 'react';
-import { VoiceCommand } from '@/types';
+import { useLanguage } from '@/store/useAppStore';
+import { apiPost } from '@/lib/api';
+
+type VoiceState = 'idle' | 'listening' | 'processing' | 'speaking' | 'error';
 
 interface UseVoiceReturn {
-  isListening: boolean;
-  isSupported: boolean;
+  state: VoiceState;
   transcript: string;
-  command: VoiceCommand | null;
+  response: string;
+  isSupported: boolean;
   error: string | null;
   startListening: () => void;
   stopListening: () => void;
-  clearTranscript: () => void;
+  speakResponse: (text: string) => void;
 }
 
 export const useVoice = (): UseVoiceReturn => {
-  const [isListening, setIsListening] = useState(false);
-  const [isSupported, setIsSupported] = useState(false);
+  const language = useLanguage();
+  const [state, setState] = useState<VoiceState>('idle');
   const [transcript, setTranscript] = useState('');
-  const [command, setCommand] = useState<VoiceCommand | null>(null);
+  const [response, setResponse] = useState('');
+  const [isSupported, setIsSupported] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const recognitionRef = useRef<any>(null);
+  const synthesisRef = useRef<SpeechSynthesis | null>(null);
   const timeoutRef = useRef<NodeJS.Timeout>();
 
   // Check browser support
   useEffect(() => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    setIsSupported(!!SpeechRecognition);
+    const SpeechSynthesis = window.speechSynthesis;
+    
+    setIsSupported(!!SpeechRecognition && !!SpeechSynthesis);
+    synthesisRef.current = SpeechSynthesis;
 
     if (SpeechRecognition) {
       recognitionRef.current = new SpeechRecognition();
       recognitionRef.current.continuous = false;
       recognitionRef.current.interimResults = true;
-      recognitionRef.current.lang = 'en-US';
+      recognitionRef.current.lang = language === 'hi' ? 'hi-IN' : 'en-IN';
 
       recognitionRef.current.onstart = () => {
-        setIsListening(true);
+        setState('listening');
         setError(null);
         setTranscript('');
       };
@@ -46,7 +54,7 @@ export const useVoice = (): UseVoiceReturn => {
         for (let i = event.resultIndex; i < event.results.length; i++) {
           const transcript = event.results[i][0].transcript;
           if (event.results[i].isFinal) {
-            finalTranscript += transcript + ' ';
+            finalTranscript += transcript;
           } else {
             interimTranscript += transcript;
           }
@@ -54,9 +62,9 @@ export const useVoice = (): UseVoiceReturn => {
 
         setTranscript(finalTranscript + interimTranscript);
 
-        // Process final transcript as command
+        // Auto-send final transcript
         if (finalTranscript.trim()) {
-          processVoiceCommand(finalTranscript.trim());
+          handleVoiceInput(finalTranscript.trim());
         }
       };
 
@@ -76,19 +84,18 @@ export const useVoice = (): UseVoiceReturn => {
           case 'network':
             errorMessage = 'Network error';
             break;
-          case 'service-not-allowed':
-            errorMessage = 'Voice recognition service not allowed';
-            break;
           default:
             errorMessage = `Voice recognition error: ${event.error}`;
         }
 
         setError(errorMessage);
-        setIsListening(false);
+        setState('error');
       };
 
       recognitionRef.current.onend = () => {
-        setIsListening(false);
+        if (state === 'listening') {
+          setState('idle');
+        }
       };
     }
 
@@ -96,130 +103,127 @@ export const useVoice = (): UseVoiceReturn => {
       if (recognitionRef.current) {
         recognitionRef.current.stop();
       }
+      if (synthesisRef.current) {
+        synthesisRef.current.cancel();
+      }
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
       }
     };
-  }, []);
+  }, [language, state]);
 
-  const processVoiceCommand = (text: string): void => {
-    const lowerText = text.toLowerCase();
-    let intent = 'general';
-    let entities: Record<string, any> = {};
-    let confidence = 0.8;
-
-    // Weather commands
-    if (lowerText.includes('weather') || lowerText.includes('temperature')) {
-      intent = 'weather';
-      confidence = 0.9;
+  const handleVoiceInput = async (text: string): Promise<void> => {
+    setState('processing');
+    
+    try {
+      const response = await apiPost('/api/v1/voice/query', {
+        query: text,
+        language: language
+      });
       
-      if (lowerText.includes('today')) {
-        entities.timeframe = 'today';
-      } else if (lowerText.includes('tomorrow')) {
-        entities.timeframe = 'tomorrow';
-      } else if (lowerText.includes('week')) {
-        entities.timeframe = 'week';
+      if (response.success && response.data) {
+        const responseData = response.data as { response: string };
+        setResponse(responseData.response);
+        setState('speaking');
+        speakResponse(responseData.response);
+      } else {
+        throw new Error(response.error || 'Failed to process voice query');
       }
+    } catch (err: any) {
+      setError(err.message || 'Failed to process voice query');
+      setState('error');
     }
-
-    // Crop commands
-    if (lowerText.includes('crop') || lowerText.includes('plant') || lowerText.includes('grow')) {
-      intent = 'crops';
-      confidence = 0.85;
-      
-      // Extract crop names
-      const crops = ['wheat', 'rice', 'corn', 'tomato', 'potato', 'onion'];
-      for (const crop of crops) {
-        if (lowerText.includes(crop)) {
-          entities.crop = crop;
-          break;
-        }
-      }
-    }
-
-    // Alert commands
-    if (lowerText.includes('alert') || lowerText.includes('warning')) {
-      intent = 'alerts';
-      confidence = 0.9;
-    }
-
-    // Recommendation commands
-    if (lowerText.includes('recommend') || lowerText.includes('suggest')) {
-      intent = 'recommendations';
-      confidence = 0.85;
-    }
-
-    // Navigation commands
-    if (lowerText.includes('dashboard') || lowerText.includes('home')) {
-      intent = 'navigation';
-      entities.page = 'dashboard';
-      confidence = 0.95;
-    } else if (lowerText.includes('weather page')) {
-      intent = 'navigation';
-      entities.page = 'weather';
-      confidence = 0.95;
-    } else if (lowerText.includes('chat')) {
-      intent = 'navigation';
-      entities.page = 'chat';
-      confidence = 0.95;
-    }
-
-    const voiceCommand: VoiceCommand = {
-      id: Date.now().toString(),
-      command: text,
-      intent,
-      entities,
-      confidence,
-      timestamp: new Date().toISOString(),
-    };
-
-    setCommand(voiceCommand);
   };
 
   const startListening = (): void => {
     if (!isSupported || !recognitionRef.current) {
       setError('Voice recognition not supported');
+      setState('error');
       return;
     }
 
     try {
+      // Cancel any ongoing speech
+      if (synthesisRef.current) {
+        synthesisRef.current.cancel();
+      }
+      
       recognitionRef.current.start();
       
-      // Auto-stop after 10 seconds of silence
+      // Auto-stop after 10 seconds
       timeoutRef.current = setTimeout(() => {
-        if (isListening) {
+        if (state === 'listening') {
           stopListening();
         }
       }, 10000);
     } catch (err: any) {
       setError(err.message || 'Failed to start voice recognition');
+      setState('error');
     }
   };
 
   const stopListening = (): void => {
-    if (recognitionRef.current && isListening) {
+    if (recognitionRef.current) {
       recognitionRef.current.stop();
     }
     
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
     }
+    
+    if (state === 'listening') {
+      setState('idle');
+    }
   };
 
-  const clearTranscript = (): void => {
-    setTranscript('');
-    setCommand(null);
-    setError(null);
+  const speakResponse = (text: string): void => {
+    if (!synthesisRef.current) return;
+    
+    // Cancel any previous speech
+    synthesisRef.current.cancel();
+    
+    const utterance = new SpeechSynthesisUtterance(text);
+    
+    // Select voice based on language
+    const voices = synthesisRef.current.getVoices();
+    const preferredVoice = voices.find(voice => 
+      voice.lang.includes(language === 'hi' ? 'hi' : 'en')
+    );
+    
+    if (preferredVoice) {
+      utterance.voice = preferredVoice;
+    } else {
+      // Fallback to default voice
+      utterance.lang = language === 'hi' ? 'hi-IN' : 'en-US';
+    }
+    
+    utterance.rate = 0.9;
+    utterance.pitch = 1;
+    utterance.volume = 1;
+    
+    utterance.onstart = () => {
+      setState('speaking');
+    };
+    
+    utterance.onend = () => {
+      setState('idle');
+    };
+    
+    utterance.onerror = () => {
+      setState('idle');
+    };
+    
+    synthesisRef.current.speak(utterance);
   };
 
   return {
-    isListening,
-    isSupported,
+    state,
     transcript,
-    command,
+    response,
+    isSupported,
     error,
     startListening,
     stopListening,
-    clearTranscript,
+    speakResponse,
   };
 };
