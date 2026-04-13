@@ -112,8 +112,8 @@ async def verify_otp(request: Request, verify_request: VerifyOTPRequest):
         phone = verify_request.phone
         otp_token = verify_request.otp_token
         
-        # Verify Firebase token
-        firebase_data = await auth_service.verify_firebase_token(otp_token)
+        # Verify Firebase token (support dev mode fallback)
+        firebase_data = await auth_service.verify_firebase_token(otp_token, phone=phone)
         
         # Ensure phone matches Firebase token
         if firebase_data["phone"] != phone:

@@ -46,12 +46,14 @@ class SoilInput(BaseModel):
     organic_matter_pct: Optional[float] = Field(None, ge=0, le=10, description="Organic matter percentage")
     soil_type: Optional[SoilTypeEnum] = Field(None, description="Soil type classification")
     
-    @validator('nitrogen_kg_ha', 'phosphorus_kg_ha', 'potassium_kg_ha')
+    @field_validator('nitrogen_kg_ha', 'phosphorus_kg_ha', 'potassium_kg_ha')
+    @classmethod
     def round_npk_values(cls, v):
         """Round NPK values to reduce cache fragmentation."""
         return round(v / 5) * 5
     
-    @validator('ph')
+    @field_validator('ph')
+    @classmethod
     def round_ph_value(cls, v):
         """Round pH to 1 decimal place."""
         return round(v, 1)
@@ -66,7 +68,8 @@ class RecommendationRequest(BaseModel):
     lng: float = Field(..., ge=68.0, le=97.0, description="Longitude in India (68-97)")
     language: LanguageEnum = Field(LanguageEnum.ENGLISH, description="Response language")
     
-    @validator('area_acres')
+    @field_validator('area_acres')
+    @classmethod
     def round_area(cls, v):
         """Round area to 2 decimal places."""
         return round(v, 2)
@@ -173,7 +176,13 @@ class DailyTipsResponse(BaseModel):
 
 class RecommendationHistory(BaseModel):
     """Historical recommendation record."""
-    id: str = Field(..., description="Recommendation ID")
+    model_config = ConfigDict(
+        from_attributes=True,
+        populate_by_name=True,
+        arbitrary_types_allowed=True
+    )
+    
+    id: str = Field(..., alias="_id", description="Recommendation ID")
     user_id: str = Field(..., description="User ID")
     created_at: str = Field(..., description="Creation timestamp")
     soil_data: SoilInput = Field(..., description="Soil data used")
@@ -183,6 +192,14 @@ class RecommendationHistory(BaseModel):
     confidence: float = Field(..., description="Confidence percentage")
     feedback: Optional[Dict[str, Any]] = Field(None, description="User feedback if any")
     was_helpful: Optional[bool] = Field(None, description="Whether recommendation was helpful")
+
+    @field_validator('id', 'user_id', mode='before')
+    @classmethod
+    def transform_ids(cls, v):
+        """Transform ObjectId to string if needed."""
+        if v and not isinstance(v, str):
+            return str(v)
+        return v
 
 
 class FeedbackRequest(BaseModel):

@@ -26,14 +26,16 @@ class WeatherRequest(BaseModel):
         description="Longitude (-180 to 180)"
     )
     
-    @validator('lat')
+    @field_validator('lat')
+    @classmethod
     def validate_lat_range(cls, v):
         """Validate latitude is within valid range."""
         if not -90 <= v <= 90:
             raise ValueError("Latitude must be between -90 and 90 degrees")
         return v
     
-    @validator('lng')
+    @field_validator('lng')
+    @classmethod
     def validate_lng_range(cls, v):
         """Validate longitude is within valid range."""
         if not -180 <= v <= 180:

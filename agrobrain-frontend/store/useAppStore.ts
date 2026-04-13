@@ -9,6 +9,8 @@ interface AppState {
   language: 'hi' | 'en';
   location: Location | null;
   isLocationLoading: boolean;
+  locationPermission: boolean;
+  isAuthenticated: boolean;
   
   // Weather state
   weatherData: WeatherData | null;
@@ -31,6 +33,7 @@ interface AppActions {
   clearUser: () => void;
   setToken: (token: string | null) => void;
   clearToken: () => void;
+  logout: () => void;
   
   // Language settings
   setLanguage: (language: 'hi' | 'en') => void;
@@ -38,6 +41,7 @@ interface AppActions {
   // Location actions
   setLocation: (location: Location | null) => void;
   setLocationLoading: (loading: boolean) => void;
+  setLocationPermission: (permission: boolean) => void;
   
   // Weather actions
   setWeatherData: (weatherData: WeatherData | null) => void;
@@ -65,6 +69,8 @@ export const useAppStore = create<AppState & AppActions>()(
       language: 'hi', // Default to Hindi as specified
       location: null,
       isLocationLoading: false,
+      locationPermission: false,
+      isAuthenticated: false,
       weatherData: null,
       weatherLoading: { isLoading: false },
       weatherError: { hasError: false },
@@ -87,6 +93,11 @@ export const useAppStore = create<AppState & AppActions>()(
       clearUser: () => set({ user: null }),
       setToken: (token) => set({ accessToken: token }),
       clearToken: () => set({ accessToken: null }),
+      logout: () => set({ 
+        user: null, 
+        accessToken: null, 
+        isAuthenticated: false 
+      }),
       
       // Language settings (persisted in localStorage)
       setLanguage: (language) => set({ 
@@ -97,6 +108,7 @@ export const useAppStore = create<AppState & AppActions>()(
       // Location actions
       setLocation: (location) => set({ location }),
       setLocationLoading: (loading) => set({ isLocationLoading: loading }),
+      setLocationPermission: (permission) => set({ locationPermission: permission }),
 
       // Weather actions
       setWeatherData: (weatherData) => set({ weatherData }),

@@ -47,9 +47,9 @@ export function useChat(sessionId: string | null): UseChatReturn {
   // Send message mutation
   const sendMessageMutation = useMutation({
     mutationFn: async ({ sessionId, content }: { sessionId: string; content: string }) => {
-      const response = await apiPost<ChatMessage>(`/chat/sessions/${sessionId}/messages`, {
-        content,
-        role: 'user'
+      const response = await apiPost<any>('/chat/message', {
+        message: content,
+        sessionId: sessionId,
       });
       
       if (response.success && response.data) {
@@ -66,6 +66,7 @@ export function useChat(sessionId: string | null): UseChatReturn {
 
       // Optimistically update to the new value
       const newUserMessage: ChatMessage = {
+        id: `temp-${Date.now()}`,
         msgId: `temp-${Date.now()}`,
         role: 'user',
         content,
@@ -117,7 +118,7 @@ export function useChat(sessionId: string | null): UseChatReturn {
   // Delete session mutation
   const deleteSessionMutation = useMutation({
     mutationFn: async (sessionId: string) => {
-      const response = await apiPost(`/chat/sessions/${sessionId}/delete`);
+      const response = await apiDelete(`/chat/sessions/${sessionId}`);
       if (!response.success) {
         throw new Error('Failed to delete session');
       }

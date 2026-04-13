@@ -7,7 +7,9 @@ with proper validation and error handling for Indian farmer use case.
 
 from datetime import datetime
 from typing import Dict, Any, Optional, List
-from pydantic import BaseModel, Field, validator, ConfigDict
+from datetime import datetime
+from typing import Dict, Any, Optional, List
+from pydantic import BaseModel, Field, field_validator, ConfigDict
 import re
 
 
@@ -21,7 +23,8 @@ class PhoneOTPRequest(BaseModel):
         max_length=13
     )
     
-    @validator('phone')
+    @field_validator('phone')
+    @classmethod
     def validate_phone_format(cls, v):
         """Validate phone number is in E.164 format for India."""
         # E.164 format for India: +91 followed by 10 digits
@@ -47,7 +50,8 @@ class VerifyOTPRequest(BaseModel):
         description="Firebase ID token from client-side authentication"
     )
     
-    @validator('phone')
+    @field_validator('phone')
+    @classmethod
     def validate_phone_format(cls, v):
         """Validate phone number is in E.164 format for India."""
         pattern = r'^\+91[6-9]\d{9}$'
@@ -95,7 +99,8 @@ class UserProfileUpdate(BaseModel):
     language: Optional[str] = Field(None, pattern=r'^(hi|en)$', description="Language preference")
     farm_profile: Optional[FarmProfileUpdate] = Field(None, description="Farm profile updates")
     
-    @validator('language')
+    @field_validator('language')
+    @classmethod
     def validate_language(cls, v):
         """Validate language is either Hindi or English."""
         if v not in ["hi", "en"]:
@@ -108,10 +113,11 @@ class UserResponse(BaseModel):
     
     model_config = ConfigDict(
         from_attributes=True,
-        populate_by_name=True
+        populate_by_name=True,
+        arbitrary_types_allowed=True
     )
     
-    id: str = Field(..., description="User ID")
+    id: str = Field(..., alias="_id", description="User ID")
     phone: str = Field(..., description="Phone number (masked)")
     name: Optional[str] = Field(None, description="User name")
     language: str = Field(..., description="Language preference")
@@ -124,11 +130,20 @@ class UserResponse(BaseModel):
     created_at: datetime = Field(..., description="Account creation time")
     last_login: Optional[datetime] = Field(None, description="Last login time")
     
-    @validator('phone', pre=True, always=True)
+    @field_validator('phone', mode='before')
+    @classmethod
     def mask_phone(cls, v):
         """Mask phone number for privacy."""
         if isinstance(v, str) and len(v) == 13 and v.startswith('+91'):
             return f"+91XXXXXX{v[-4:]}"
+        return v
+    
+    @field_validator('id', mode='before')
+    @classmethod
+    def transform_id(cls, v):
+        """Transform ObjectId to string if needed."""
+        if v and not isinstance(v, str):
+            return str(v)
         return v
 
 

@@ -1,11 +1,13 @@
 'use client';
 
+import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Sprout, TrendingUp, AlertCircle } from 'lucide-react';
-import { useUser } from '@/store/useAppStore';
+import { Sprout, TrendingUp, AlertCircle, Calendar } from 'lucide-react';
+import { useUser, useLanguage } from '@/store/useAppStore';
+import { recommendAPI } from '@/lib/api';
 import Link from 'next/link';
 
 interface CropRecommendCardProps {
@@ -14,38 +16,58 @@ interface CropRecommendCardProps {
 
 export function CropRecommendCard({ className }: CropRecommendCardProps) {
   const user = useUser();
+  const language = useLanguage();
 
-  // Mock data for demonstration
-  const hasSoilData = user?.farmProfile?.soilType;
-  const topCrop = hasSoilData ? {
-    name: 'Wheat',
-    confidence: 92,
-    expectedYield: 4.2,
-    reason: 'Ideal soil pH and moisture levels for wheat cultivation in your region'
-  } : null;
+  const { data: response, isLoading, error } = useQuery({
+    queryKey: ['cropRecommendationLatest'],
+    queryFn: () => recommendAPI.getHistory(1),
+    enabled: !!user,
+  });
 
-  if (!hasSoilData) {
+  const latestRec = response?.success && response.data.recommendations?.length > 0 
+    ? response.data.recommendations[0] 
+    : null;
+
+  if (isLoading) {
+    return (
+      <Card className={className}>
+        <CardHeader>
+          <Skeleton className="h-6 w-48" />
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <Skeleton className="h-20 w-full" />
+            <div className="flex space-x-2">
+              <Skeleton className="h-8 flex-1" />
+              <Skeleton className="h-8 flex-1" />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!latestRec) {
     return (
       <Card className={className}>
         <CardHeader>
           <CardTitle className="flex items-center">
-            <Sprout className="w-5 h-5 mr-2" />
-            Crop Recommendations
+            <Sprout className="w-5 h-5 mr-2 text-green-600" />
+            {language === 'hi' ? 'Fasal ki Salah' : 'Crop Recommendations'}
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-center py-8">
-            <AlertCircle className="w-12 h-12 text-orange-500 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              No Soil Data Available
+          <div className="text-center py-6">
+            <AlertCircle className="w-10 h-10 text-orange-400 mx-auto mb-3" />
+            <h3 className="text-sm font-semibold text-gray-900 mb-1">
+              {language === 'hi' ? 'Koi purana data nahi' : 'No Recent Recommendations'}
             </h3>
-            <p className="text-gray-600 mb-6">
-              Enter your soil data to get personalized crop recommendations
+            <p className="text-xs text-gray-500 mb-4 px-4">
+              {language === 'hi' ? 'Apni mitti ka data bharein' : 'Enter your soil details to get AI-powered crop advice'}
             </p>
             <Link href="/dashboard/recommend">
-              <Button className="w-full">
-                <Sprout className="w-4 h-4 mr-2" />
-                Enter Soil Data
+              <Button size="sm" className="w-full bg-green-600 hover:bg-green-700">
+                {language === 'hi' ? 'Nayi Salah Payein' : 'Get Started'}
               </Button>
             </Link>
           </div>
@@ -56,73 +78,55 @@ export function CropRecommendCard({ className }: CropRecommendCardProps) {
 
   return (
     <Card className={className}>
-      <CardHeader>
+      <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center">
-            <Sprout className="w-5 h-5 mr-2" />
-            Top Crop Recommendation
+          <CardTitle className="text-sm font-medium flex items-center">
+            <Sprout className="w-4 h-4 mr-2 text-green-600" />
+            {language === 'hi' ? 'Prashasta Fasal' : 'Top Recommended Crop'}
           </CardTitle>
-          <Badge className="bg-green-100 text-green-800">
-            Based on your soil data
+          <Badge variant="outline" className="text-[10px] uppercase font-bold text-green-700 border-green-200 bg-green-50">
+            {latestRec.confidence}% Match
           </Badge>
         </div>
       </CardHeader>
       <CardContent>
-        <div className="space-y-6">
-          {/* Top Crop Info */}
+        <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-2xl font-bold text-gray-900">
-                {topCrop?.name}
+              <h3 className="text-xl font-bold text-gray-900">
+                {latestRec.top_crop}
               </h3>
-              <div className="flex items-center space-x-2 mt-2">
-                <Badge className="bg-green-100 text-green-800">
-                  {topCrop?.confidence}% Match
-                </Badge>
-                <div className="flex items-center text-sm text-gray-600">
-                  <TrendingUp className="w-4 h-4 mr-1" />
-                  Expected: {topCrop?.expectedYield} tons/ha
-                </div>
+              <div className="flex items-center text-[10px] text-gray-500 mt-0.5">
+                <Calendar className="w-3 h-3 mr-1" />
+                {new Date(latestRec.created_at).toLocaleDateString()}
               </div>
             </div>
-            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
-              <Sprout className="w-8 h-8 text-green-600" />
+            <div className="p-2 bg-green-50 rounded-full">
+              <Sprout className="w-6 h-6 text-green-600" />
             </div>
           </div>
 
-          {/* Recommendation Reason */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <h4 className="text-sm font-semibold text-blue-900 mb-2">
-              Why this crop?
-            </h4>
-            <p className="text-sm text-blue-800">
-              {topCrop?.reason}
+          <div className="bg-gray-50 rounded-lg p-3 border border-gray-100">
+            <div className="flex items-center text-[10px] font-bold text-gray-400 uppercase mb-1">
+              <TrendingUp className="w-3 h-3 mr-1" />
+              Quick Summary
+            </div>
+            <p className="text-xs text-gray-700 line-clamp-2 italic">
+              "Best suited for {latestRec.soil_data.soil_type} soil in {latestRec.season} season."
             </p>
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex space-x-3">
+          <div className="flex space-x-2">
             <Link href="/dashboard/recommend" className="flex-1">
-              <Button className="w-full">
-                <Sprout className="w-4 h-4 mr-2" />
-                Get New Recommendation
+              <Button size="sm" variant="outline" className="w-full text-xs">
+                {language === 'hi' ? 'Fir se dekhein' : 'New Analysis'}
               </Button>
             </Link>
-            <Button variant="outline" className="flex-1">
-              View Details
-            </Button>
-          </div>
-
-          {/* Additional Info */}
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            <div className="bg-gray-50 rounded-lg p-3">
-              <div className="text-gray-600 mb-1">Best Season</div>
-              <div className="font-semibold">Rabi (Oct-Mar)</div>
-            </div>
-            <div className="bg-gray-50 rounded-lg p-3">
-              <div className="text-gray-600 mb-1">Water Needs</div>
-              <div className="font-semibold">Medium</div>
-            </div>
+            <Link href={`/dashboard/recommend/history/${latestRec.id}`} className="flex-1">
+              <Button size="sm" className="w-full text-xs bg-green-600 hover:bg-green-700">
+                {language === 'hi' ? 'Vistrit dekhein' : 'View Details'}
+              </Button>
+            </Link>
           </div>
         </div>
       </CardContent>

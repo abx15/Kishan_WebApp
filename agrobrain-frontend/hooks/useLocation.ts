@@ -48,13 +48,13 @@ export const useLocation = (): UseLocationReturn => {
       const locationData = await reverseGeocode(latitude, longitude);
       
       setLocation(locationData);
-      setLocationPermission('granted');
+      setLocationPermission(true);
     } catch (err: any) {
       const errorMessage = err.message || 'Failed to get location';
       setError(errorMessage);
       
       if (err.code === 1) { // Permission denied
-        setLocationPermission('denied');
+        setLocationPermission(false);
       }
     } finally {
       setIsLoading(false);
@@ -76,12 +76,12 @@ export const useLocation = (): UseLocationReturn => {
         navigator.geolocation.getCurrentPosition(resolve, reject);
       });
       
-      setLocationPermission('granted');
+      setLocationPermission(true);
       await getCurrentLocation();
     } catch (err: any) {
       const errorMessage = err.message || 'Permission denied';
       setError(errorMessage);
-      setLocationPermission('denied');
+      setLocationPermission(false);
     } finally {
       setIsLoading(false);
     }
@@ -108,20 +108,22 @@ export const useLocation = (): UseLocationReturn => {
       const data = await response.json();
       
       return {
+        lat,
+        lng: lon,
         latitude: lat,
         longitude: lon,
         city: data.address?.city || data.address?.town || data.address?.village || 'Unknown',
         state: data.address?.state || data.address?.region || 'Unknown',
-        country: data.address?.country || 'Unknown',
       };
     } catch (err) {
       // Fallback to generic location
       return {
+        lat,
+        lng: lon,
         latitude: lat,
         longitude: lon,
         city: 'Unknown',
         state: 'Unknown',
-        country: 'Unknown',
       };
     }
   };
@@ -130,14 +132,14 @@ export const useLocation = (): UseLocationReturn => {
   useEffect(() => {
     if (navigator.permissions && navigator.permissions.query) {
       navigator.permissions.query({ name: 'geolocation' }).then((result) => {
-        setLocationPermission(result.state as 'granted' | 'denied' | 'prompt');
+        setLocationPermission(result.state === 'granted');
       });
     }
   }, []);
 
   return {
     location,
-    permission: locationPermission,
+    permission: locationPermission ? 'granted' : 'denied',
     isLoading,
     error,
     getCurrentLocation,

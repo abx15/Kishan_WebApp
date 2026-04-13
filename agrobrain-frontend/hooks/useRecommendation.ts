@@ -21,7 +21,7 @@ export const useRecommendation = (): UseRecommendationReturn => {
 
     try {
       const response = await apiPost<CropRecommendation[]>('/recommendations', soilData);
-      
+
       if (response.success && response.data) {
         setRecommendations(response.data);
         return response.data;
@@ -54,7 +54,7 @@ export const useRecommendation = (): UseRecommendationReturn => {
 // Mock recommendation generator (for development)
 export const generateMockRecommendations = (soilData: SoilData): CropRecommendation[] => {
   const crops = [
-    'Wheat', 'Rice', 'Corn', 'Soybean', 'Cotton', 'Sugarcane', 
+    'Wheat', 'Rice', 'Corn', 'Soybean', 'Cotton', 'Sugarcane',
     'Potato', 'Tomato', 'Onion', 'Garlic', 'Barley', 'Millet'
   ];
 
@@ -62,19 +62,19 @@ export const generateMockRecommendations = (soilData: SoilData): CropRecommendat
 
   // Generate 3-5 recommendations based on soil data
   const numRecommendations = 3 + Math.floor(Math.random() * 3);
-  
+
   for (let i = 0; i < numRecommendations; i++) {
     const crop = crops[Math.floor(Math.random() * crops.length)];
     const confidence = 70 + Math.random() * 25; // 70-95% confidence
-    
+
     recommendations.push({
       crop,
       confidence,
-      reasons: generateReasons(soilData, crop),
+      reason: generateReasons(soilData, crop)[0],
       plantingSeason: ['Spring', 'Summer', 'Winter', 'Monsoon'][Math.floor(Math.random() * 4)],
       harvestTime: `${60 + Math.floor(Math.random() * 90)} days`,
-      expectedYield: Math.floor(Math.random() * 5000) + 1000, // 1000-6000 kg/ha
-      waterRequirement: Math.floor(Math.random() * 500) + 200, // 200-700 mm
+      expectedYield: `${Math.floor(Math.random() * 5000) + 1000} kg/ha`, // 1000-6000 kg/ha
+      waterRequirement: `${Math.floor(Math.random() * 500) + 200} mm`, // 200-700 mm
       fertilizerRecommendation: {
         nitrogen: Math.floor(Math.random() * 100) + 50,
         phosphorus: Math.floor(Math.random() * 80) + 30,

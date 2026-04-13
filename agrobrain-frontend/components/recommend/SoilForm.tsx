@@ -116,7 +116,7 @@ export function SoilForm({ onSubmit, isLoading = false }: SoilFormProps) {
           <div className="flex items-center justify-between">
             <Label className="flex items-center text-sm font-medium">
               {language === 'hi' ? 'Nitrogen (N) kg/ha' : 'Nitrogen (N) kg/ha'}
-              <Info className="w-3 h-3 ml-1 text-gray-400" title={getFieldTooltip('nitrogen')} />
+              <Info className="w-3 h-3 ml-1 text-gray-400" />
             </Label>
             <span className="text-sm font-semibold">{formData.nitrogenKgHa}</span>
           </div>
@@ -145,7 +145,7 @@ export function SoilForm({ onSubmit, isLoading = false }: SoilFormProps) {
           <div className="flex items-center justify-between">
             <Label className="flex items-center text-sm font-medium">
               {language === 'hi' ? 'Phosphorus (P) kg/ha' : 'Phosphorus (P) kg/ha'}
-              <Info className="w-3 h-3 ml-1 text-gray-400" title={getFieldTooltip('phosphorus')} />
+              <Info className="w-3 h-3 ml-1 text-gray-400" />
             </Label>
             <span className="text-sm font-semibold">{formData.phosphorusKgHa}</span>
           </div>
@@ -174,7 +174,7 @@ export function SoilForm({ onSubmit, isLoading = false }: SoilFormProps) {
           <div className="flex items-center justify-between">
             <Label className="flex items-center text-sm font-medium">
               {language === 'hi' ? 'Potassium (K) kg/ha' : 'Potassium (K) kg/ha'}
-              <Info className="w-3 h-3 ml-1 text-gray-400" title={getFieldTooltip('potassium')} />
+              <Info className="w-3 h-3 ml-1 text-gray-400" />
             </Label>
             <span className="text-sm font-semibold">{formData.potassiumKgHa}</span>
           </div>
@@ -203,7 +203,7 @@ export function SoilForm({ onSubmit, isLoading = false }: SoilFormProps) {
           <div className="flex items-center justify-between">
             <Label className="flex items-center text-sm font-medium">
               {language === 'hi' ? 'pH level' : 'pH level'}
-              <Info className="w-3 h-3 ml-1 text-gray-400" title={getFieldTooltip('ph')} />
+              <Info className="w-3 h-3 ml-1 text-gray-400" />
             </Label>
             <Badge className={`${getPhBgColor(formData.ph)} ${getPhColor(formData.ph)}`}>
               pH {formData.ph}
@@ -241,7 +241,7 @@ export function SoilForm({ onSubmit, isLoading = false }: SoilFormProps) {
             <Label className="flex items-center text-sm font-medium">
               <Droplets className="w-4 h-4 mr-1" />
               {language === 'hi' ? 'nami %' : 'Moisture %'}
-              <Info className="w-3 h-3 ml-1 text-gray-400" title={getFieldTooltip('moisture')} />
+              <Info className="w-3 h-3 ml-1 text-gray-400" />
             </Label>
             <span className="text-sm font-semibold">{formData.moisturePct}%</span>
           </div>

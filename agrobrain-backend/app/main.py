@@ -39,7 +39,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from app.core.config import settings
 from app.core.logger import _logger_config, logger
 from app.core.database import connect_db, disconnect_db, get_db_health
-from app.core.redis import connect_redis, disconnect_redis, get_redis_health
+from app.core.redis import connect_redis, disconnect_redis, get_redis_health, redis_manager
 import firebase_admin
 from firebase_admin import credentials
 from app.routes.auth import router as auth_router
@@ -62,7 +62,8 @@ async def lifespan(app: FastAPI):
         # Initialize ML Predictor
         try:
             app.state.predictor = CropPredictor()
-            logger.info("Crop ML Predictor initialized successfully")
+            app.state.predictor.load()  # Call the load method to initialize model
+            logger.info("Crop ML Predictor initialized and loaded successfully")
         except Exception as e:
             logger.error(f"Failed to initialize Crop ML Predictor: {e}")
             app.state.predictor = None

@@ -8,11 +8,17 @@ and integration with weather and farm context.
 import time
 import asyncio
 from datetime import datetime
-from typing import List, Dict, Any, Optional, AsyncGenerator
+from typing import List, Dict, Any, Optional, AsyncGenerator, Tuple
 
 import openai
 from openai import AsyncOpenAI, RateLimitError
 from bson import ObjectId
+from tenacity import (
+    retry,
+    stop_after_attempt,
+    wait_exponential,
+    retry_if_exception_type
+)
 
 from app.core.config import settings
 from app.core.logger import logger
@@ -141,7 +147,24 @@ Rules:
             curr = weather_data["current"]
             weather_str = f"{curr.get('temp_c')}°C, {curr.get('condition')}, Humidity: {curr.get('humidity_pct')}%"
 
-        return " | ".join(context_parts), weather_str, str(farm)
+
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(min=1, max=10),
+        retry=retry_if_exception_type(RateLimitError)
+    )
+    async def _call_openai(self, messages: List[Dict[str, str]]) -> Tuple[str, int]:
+        """Call OpenAI API with retry logic."""
+        response = await asyncio.wait_for(
+            self.client.chat.completions.create(
+                model=settings.openai_model,
+                messages=messages,
+                max_tokens=400,
+                temperature=0.7
+            ),
+            timeout=25.0
+        )
+        return response.choices[0].message.content, response.usage.total_tokens
 
     async def send_message(self, request: ChatRequest, current_user: Dict[str, Any], db, redis) -> ChatResponse:
         """Standard REST endpoint for chat messages (no streaming)."""
@@ -195,39 +218,18 @@ Rules:
         messages.extend(history)
         messages.append({"role": "user", "content": request.message})
         
-        # 5. Call OpenAI with retries and timeout
-        retry_count = 0
-        max_retries = 2
-        ai_content = ""
-        tokens = 0
-        
-        while retry_count <= max_retries:
-            try:
-                response = await asyncio.wait_for(
-                    self.client.chat.completions.create(
-                        model=settings.openai_model,
-                        messages=messages,
-                        max_tokens=400,
-                        temperature=0.7
-                    ),
-                    timeout=25.0
-                )
-                ai_content = response.choices[0].message.content
-                tokens = response.usage.total_tokens
-                break
-            except RateLimitError:
-                if retry_count == max_retries:
-                    raise
-                wait_time = (retry_count + 1) * 2
-                self.logger.warning(f"Rate limit hit, retrying in {wait_time}s...")
-                await asyncio.sleep(wait_time)
-                retry_count += 1
-            except asyncio.TimeoutError:
-                self.logger.error("OpenAI request timed out")
-                raise HTTPException(status_code=504, detail="AI Assistant taking too long to respond.")
-            except Exception as e:
-                self.logger.error(f"OpenAI chat call failed: {e}")
-                raise
+        # 5. Call OpenAI with tenacity retries
+        try:
+            ai_content, tokens = await self._call_openai(messages)
+        except RateLimitError:
+            self.logger.error("OpenAI rate limit hit after retries")
+            raise HTTPException(status_code=429, detail="AI service is currently busy. Please try again in a few minutes.")
+        except asyncio.TimeoutError:
+            self.logger.error("OpenAI request timed out")
+            raise HTTPException(status_code=504, detail="AI Assistant taking too long to respond.")
+        except Exception as e:
+            self.logger.error(f"OpenAI chat call failed: {e}")
+            raise
 
         # 6. Save messages
         user_msg = ChatMessage(role="user", content=request.message, language_detected=lang)

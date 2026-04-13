@@ -22,8 +22,8 @@ export const useWeather = (location?: Location): UseWeatherReturn => {
         throw new Error('Location is required');
       }
 
-      // In a real app, this would call your backend API
-      const response = await apiGet<WeatherData>(`/weather?lat=${location.lat}&lon=${location.lng}`);
+      // Updated to match backend route /api/v1/weather/current
+      const response = await apiGet<WeatherData>(`/weather/current?lat=${location.lat}&lng=${location.lng}`);
       
       if (response.success && response.data) {
         return response.data;

@@ -46,6 +46,11 @@ class CropPredictor:
 
     def load(self):
         """Call once at FastAPI startup via lifespan."""
+        if not MODEL_PATH.exists():
+            logger.warning("ML model not found, using fallback rule-based prediction")
+            self._loaded = False
+            return
+
         try:
             self.model         = joblib.load(MODEL_PATH)
             self.scaler        = joblib.load(SCALER_PATH)
@@ -62,7 +67,32 @@ class CropPredictor:
             )
         except Exception as e:
             logger.error(f"CropPredictor load failed: {e}")
-            raise RuntimeError(f"ML model load failed: {e}")
+            logger.warning("Falling back to rule-based prediction")
+            self._loaded = False
+
+    def fallback_predict(self, N, P, K, temperature, humidity, ph, rainfall) -> list[dict]:
+        """Simple rule-based prediction when ML model is unavailable."""
+        crops = []
+        if rainfall > 200:
+            crops = ["rice", "jute", "coconut"]
+        elif temperature > 30 and humidity > 70:
+            crops = ["banana", "papaya", "mongo"]
+        elif temperature < 20:
+            crops = ["apple", "grapes", "orange"]
+        else:
+            crops = ["maize", "cotton", "coffee"]
+            
+        results = []
+        for i, crop in enumerate(crops[:3], start=1):
+            results.append({
+                "rank": i,
+                "crop": crop,
+                "confidence_pct": round(90.0 - (i * 10), 2),
+                "expected_yield_ton_ha": YIELD_LOOKUP.get(crop.lower(), 2.0),
+                "suitability_score": round(0.9 - (i * 0.1), 4),
+                "is_fallback": True
+            })
+        return results
 
     def predict(
         self,
@@ -77,16 +107,11 @@ class CropPredictor:
     ) -> list[dict]:
         """
         Predict top N crops for given soil + weather conditions.
-
-        Returns:
-            list of dicts:
-            [
-              { rank, crop, confidence_pct, expected_yield_ton_ha, suitability_score },
-              ...
-            ]
+        Uses ML model if loaded, otherwise falls back to rule-based prediction.
         """
         if not self._loaded:
-            raise RuntimeError("Model not loaded. Call load() first.")
+            logger.debug("Model not loaded, using fallback_predict")
+            return self.fallback_predict(N, P, K, temperature, humidity, ph, rainfall)
 
         # Build feature array
         features = np.array([[N, P, K, temperature, humidity, ph, rainfall]])
@@ -143,6 +168,32 @@ class CropPredictor:
     @property
     def accuracy(self) -> float:
         return self.model_info.get("test_accuracy", 0.0)
+
+def get_fallback_recommendations() -> list:
+    """
+    Fallback crop recommendations when ML model is unavailable.
+    Returns basic crop suggestions based on common Indian farming patterns.
+    """
+    return [
+        {
+            "crop": "Wheat",
+            "confidence": 0.8,
+            "season": "Rabi",
+            "reason": "Good for current soil conditions and climate"
+        },
+        {
+            "crop": "Rice", 
+            "confidence": 0.7,
+            "season": "Kharif",
+            "reason": "Suitable for irrigated fields"
+        },
+        {
+            "crop": "Sugarcane",
+            "confidence": 0.6,
+            "season": "Perennial",
+            "reason": "High yield crop for profitable farming"
+        }
+    ]
 
 
 # Singleton instance - import this in FastAPI app

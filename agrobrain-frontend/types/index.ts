@@ -2,6 +2,7 @@ export interface User {
   id: string;
   phone: string;
   name: string;
+  email?: string;
   language: "hi" | "en";
   avatarUrl?: string;
   defaultLocation: Location;
@@ -13,10 +14,13 @@ export interface User {
 export interface Location {
   lat: number;
   lng: number;
+  latitude?: number;
+  longitude?: number;
   village?: string;
   district?: string;
   state?: string;
   pincode?: string;
+  city?: string;
 }
 
 export interface FarmProfile {
@@ -104,6 +108,7 @@ export interface FertilizerPlan {
 }
 
 export interface ChatMessage {
+  id: string;
   msgId: string;
   role: "user" | "assistant";
   content: string;
@@ -112,10 +117,14 @@ export interface ChatMessage {
 }
 
 export interface ChatSession {
+  id: string;
   sessionId: string;
+  title?: string;
   messages: ChatMessage[];
   totalMessages: number;
+  messageCount?: number;
   startedAt: string;
+  createdAt?: string;
 }
 
 export interface ApiResponse<T> {
@@ -170,4 +179,20 @@ export interface VoiceCommand {
   entities: Record<string, any>;
   confidence: number;
   timestamp: string;
+}
+
+export interface SoilData extends SoilInput {
+  location?: Location;
+  timestamp?: string;
+}
+
+export interface CropRecommendation {
+  crop: string;
+  confidence: number;
+  season: string;
+  reason: string;
+  expectedYield?: string;
+  growingPeriod?: string;
+  irrigationNeeds?: string;
+  fertilizerRequirements?: string;
 }

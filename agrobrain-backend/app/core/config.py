@@ -8,7 +8,7 @@ with environment variable loading and validation.
 from functools import lru_cache
 from typing import List, Optional
 
-from pydantic import Field, validator
+from pydantic import Field, field_validator, model_validator, ConfigDict
 from pydantic_settings import BaseSettings
 
 
@@ -20,64 +20,64 @@ class Settings(BaseSettings):
     app_version: str = Field(default="1.0.0", description="Application version")
     debug: bool = Field(default=False, description="Enable debug mode")
     db_fallback: bool = Field(default=True, description="Enable fallback to mock DB if connection fails")
-    secret_key: str = Field(..., description="JWT secret key")
+    secret_key: str = Field(default="dev-secret-key-change-in-prod", description="JWT secret key")
     algorithm: str = Field(default="HS256", description="JWT algorithm")
     access_token_expire_minutes: int = Field(default=60, description="Access token expiration in minutes")
     refresh_token_expire_days: int = Field(default=30, description="Refresh token expiration in days")
     
     # Database Configuration
-    mongodb_url: str = Field(..., description="MongoDB connection URL")
-    mongodb_db_name: str = Field(default="agrobrain", description="MongoDB database name")
+    mongodb_url: str = Field(..., alias="MONGODB_URL", description="MongoDB connection URL")
+    mongodb_db_name: str = Field(default="agrobrain", alias="MONGODB_DB_NAME", description="MongoDB database name")
     
     # Redis Configuration
-    redis_url: str = Field(default="redis://localhost:6379", description="Redis connection URL")
-    redis_password: Optional[str] = Field(default=None, description="Redis password")
+    redis_url: str = Field(default="redis://localhost:6379", alias="REDIS_URL", description="Redis connection URL")
+    redis_password: Optional[str] = Field(default=None, alias="REDIS_PASSWORD", description="Redis password")
     
     # OpenAI Configuration
-    openai_api_key: str = Field(..., description="OpenAI API key")
+    openai_api_key: str = Field(..., alias="OPENAI_API_KEY", description="OpenAI API key")
     openai_model: str = Field(default="gpt-4o", description="OpenAI model to use")
     
     # OpenWeatherMap Configuration
-    openweather_api_key: str = Field(..., description="OpenWeatherMap API key")
+    openweather_api_key: str = Field(..., alias="OPENWEATHER_API_KEY", description="OpenWeatherMap API key")
     openweather_base_url: str = Field(
         default="https://api.openweathermap.org/data/2.5",
         description="OpenWeatherMap API base URL"
     )
     
     # Firebase Configuration
-    firebase_project_id: str = Field(..., description="Firebase project ID")
-    firebase_credentials_path: str = Field(..., description="Path to Firebase credentials file")
+    firebase_project_id: str = Field(default="", alias="FIREBASE_PROJECT_ID", description="Firebase project ID")
+    firebase_credentials_path: str = Field(default="", alias="FIREBASE_CREDENTIALS_PATH", description="Path to Firebase credentials file")
     firebase_api_key: Optional[str] = Field(None, description="Firebase API Key")
     firebase_auth_domain: Optional[str] = Field(None, description="Firebase Auth Domain")
-    firebase_storage_bucket: Optional[str] = Field(None, description="Firebase Storage Bucket")
-    firebase_messaging_sender_id: Optional[str] = Field(None, description="Firebase Messaging Sender ID")
-    firebase_app_id: Optional[str] = Field(None, description="Firebase App ID")
-    firebase_measurement_id: Optional[str] = Field(None, description="Firebase Measurement ID")
-    
-    # Rate Limiting Configuration
-    rate_limit_per_minute: int = Field(default=60, description="Rate limit per minute")
-    rate_limit_per_hour: int = Field(default=500, description="Rate limit per hour")
     
     # CORS Configuration
-    cors_origins: List[str] = Field(
-        default=["http://localhost:3000", "http://localhost:8080"],
-        description="CORS allowed origins"
+    allowed_origins: str = Field(
+        default="http://localhost:3000,http://localhost:8080",
+        alias="ALLOWED_ORIGINS",
+        description="Comma-separated list of allowed origins"
     )
     
-    class Config:
-        """Pydantic configuration."""
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        case_sensitive = False
-    
-    @validator("cors_origins", pre=True)
-    def assemble_cors_origins(cls, v):
-        """Parse CORS origins from string or list."""
-        if isinstance(v, str) and not v.startswith("["):
-            return [i.strip() for i in v.split(",")]
-        elif isinstance(v, (list, str)):
-            return v
-        raise ValueError("CORS origins must be a list or comma-separated string")
+    model_config = ConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+        extra="ignore",
+        populate_by_name=True
+    )
+
+    @property
+    def cors_origins(self) -> List[str]:
+        """Convert comma-separated allowed_origins into a list."""
+        return [origin.strip() for origin in self.allowed_origins.split(",")]
+
+    @model_validator(mode='after')
+    def validate_required_keys(self) -> 'Settings':
+        """Ensure critical API keys are present."""
+        if not self.openai_api_key:
+            raise ValueError("OPENAI_API_KEY is required")
+        if not self.mongodb_url:
+            raise ValueError("MONGODB_URL is required")
+        return self
     
     @property
     def is_production(self) -> bool:
@@ -108,3 +108,4 @@ def get_settings() -> Settings:
 
 # Global settings instance
 settings = get_settings()
+

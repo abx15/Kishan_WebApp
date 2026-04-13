@@ -99,7 +99,12 @@ class RecommendationService:
         cache_key = f"reco:{hash_obj.hexdigest()}"
         
         # 2. Check Redis cache (TTL: 1 hour)
-        cached_res = await redis.get(cache_key)
+        try:
+            cached_res = await redis.get(cache_key)
+        except Exception as e:
+            self.logger.warning(f"Redis get failed: {e}")
+            cached_res = None
+
         if cached_res:
             self.logger.info(f"Recommendation cache HIT for user {user_id}")
             result = json.loads(cached_res)
@@ -164,7 +169,10 @@ class RecommendationService:
         }
         
         # 7. Store in Redis (1 hour)
-        await redis.setex(cache_key, 3600, json.dumps(response_data))
+        try:
+            await redis.setex(cache_key, 3600, json.dumps(response_data))
+        except Exception as e:
+            self.logger.warning(f"Redis set failed: {e}")
         
         # 8. Store in MongoDB
         rec_doc = {
@@ -300,7 +308,11 @@ class RecommendationService:
             ] if "2 days" in frequency else ["Tuesday", "Saturday"],
             "water_saving_tip_hi": "ड्रिप सिंचाई का उपयोग करें और शाम या सुबह जल्दी पानी दें।",
             "water_saving_tip_en": "Use drip irrigation and water early morning or late evening to reduce evaporation.",
-            "adjusted_need_mm_day": round(adjusted_need, 2)
+            "adjusted_need_mm_day": round(adjusted_need, 2),
+            "action_hi": f"Sinchai {frequency} karein" if "hi" in frequency.lower() else f"सिंचाई {frequency} करें",
+            "action_en": f"Irrigate {frequency}",
+            "quantity_hi": f"{duration} ghante ke liye",
+            "quantity_en": f"for {duration} hours"
         }
         
         return result
@@ -311,8 +323,13 @@ class RecommendationService:
         Cached per user per day (TTL till midnight).
         """
         cache_key = f"tips:{user_id}:{date.today().isoformat()}"
-        cached_tips = await redis.get(cache_key)
-        
+        # 3. Fetch/Generate Tips
+        try:
+            cached_tips = await redis.get(cache_key)
+        except Exception as e:
+            self.logger.warning(f"Redis get failed (tips): {e}")
+            cached_tips = None
+
         if cached_tips:
             return json.loads(cached_tips)
         
@@ -339,7 +356,10 @@ class RecommendationService:
             # Cache until midnight
             now = datetime.now()
             seconds_until_midnight = (24 - now.hour - 1) * 3600 + (60 - now.minute - 1) * 60 + (60 - now.second)
-            await redis.setex(cache_key, seconds_until_midnight, json.dumps(tips))
+            try:
+                await redis.setex(cache_key, seconds_until_midnight, json.dumps(tips))
+            except Exception as e:
+                self.logger.warning(f"Redis set failed (tips): {e}")
             
             return tips
         except Exception:

@@ -88,7 +88,12 @@ class WeatherService:
             redis_client = get_redis_client()
             
             # Check Redis cache first
-            cached_data = await redis_client.get(cache_key)
+            try:
+                cached_data = await redis_client.get(cache_key)
+            except Exception as e:
+                self.logger.warning(f"Redis get failed: {e}, continuing without cache")
+                cached_data = None
+
             if cached_data:
                 self.logger.info(f"Cache HIT for weather at {lat}, {lng}")
                 weather_data = json.loads(cached_data)
@@ -126,7 +131,10 @@ class WeatherService:
                 "fetched_at": weather_data.get("fetched_at")
             }
             
-            await redis_client.setex(cache_key, 600, json.dumps(weather_data))
+            try:
+                await redis_client.setex(cache_key, 600, json.dumps(weather_data))
+            except Exception as e:
+                self.logger.warning(f"Redis set failed: {e}")
             
             # Store in MongoDB
             await self._store_weather_log(weather_data, user_id)

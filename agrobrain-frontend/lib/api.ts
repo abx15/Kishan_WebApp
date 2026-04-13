@@ -15,7 +15,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/a
 // Create axios instance
 export const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 10000,
+  timeout: 15000, // Increased default timeout to 15s
   headers: {
     'Content-Type': 'application/json',
   },
@@ -24,9 +24,11 @@ export const api = axios.create({
 // Request interceptor to add auth token
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('authToken');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('authToken');
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
     }
     return config;
   },
@@ -41,14 +43,19 @@ api.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       // Handle unauthorized - clear auth and redirect to login
-      localStorage.removeItem('authToken');
-      localStorage.removeItem('user');
-      window.location.href = '/login';
-    } else if (error.response?.status === 500) {
-      // Show toast for server error
-      console.error('Server error, try again');
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('user');
+        // Only redirect if not already on login page
+        if (!window.location.pathname.includes('/login')) {
+          window.location.href = '/login';
+        }
+      }
+    } else if (error.response?.status === 429) {
+      console.error('Rate limit exceeded. Please wait before trying again.');
+    } else if (error.code === 'ECONNABORTED') {
+      console.error('Request timed out. Please try again.');
     } else if (!error.response) {
-      // Network error
       console.error('Check your internet connection');
     }
     return Promise.reject(error);
@@ -131,19 +138,26 @@ export const weatherAPI = {
 // Recommendation API
 export const recommendAPI = {
   getCropRec: (soilData: SoilInput): Promise<ApiResponse<RecommendationResponse>> =>
-    apiPost<RecommendationResponse>('/recommend/crops', soilData),
+    api.post('/recommend/crop', soilData, { timeout: 45000 }) // 45s timeout for AI + ML
+      .then(res => ({ success: true as const, data: res.data }))
+      .catch(err => ({ success: false as const, error: err.response?.data?.message || err.message })),
     
-  getIrrigation: (lat: number, lng: number): Promise<ApiResponse<string>> =>
-    apiGet<string>(`/recommend/irrigation?lat=${lat}&lng=${lng}`),
+  getIrrigation: (lat: number, lng: number, soil: any, crop: string): Promise<ApiResponse<any>> =>
+    apiPost<any>('/recommend/irrigation', { lat, lng, soil, crop }),
     
-  getDailyTips: (lat: number, lng: number): Promise<ApiResponse<string[]>> =>
-    apiGet<string[]>(`/recommend/tips?lat=${lat}&lng=${lng}`),
+  getDailyTips: (): Promise<ApiResponse<any>> =>
+    apiGet<any>('/recommend/daily-tips'),
+    
+  getHistory: (limit: number = 1): Promise<ApiResponse<any>> =>
+    apiGet<any>(`/recommend/history?limit=${limit}`),
 };
 
 // Chat API
 export const chatAPI = {
-  sendMessage: (message: string, sessionId?: string): Promise<ApiResponse<ChatMessage>> =>
-    apiPost<ChatMessage>('/chat/message', { message, sessionId }),
+  sendMessage: (message: string, sessionId?: string, context?: any): Promise<ApiResponse<any>> =>
+    api.post('/chat/message', { message, sessionId, context }, { timeout: 45000 })
+      .then(res => ({ success: true as const, data: res.data }))
+      .catch(err => ({ success: false as const, error: err.response?.data?.message || err.message })),
     
   getSessions: (): Promise<ApiResponse<ChatSession[]>> =>
     apiGet<ChatSession[]>('/chat/sessions'),
@@ -154,20 +168,22 @@ export const chatAPI = {
 
 // Auth API
 export const authAPI = {
-  verifyOTP: (phone: string, otp: string, idToken: string): Promise<ApiResponse<{ user: User; token: string }>> =>
-    apiPost<{ user: User; token: string }>('/auth/verify-otp', { phone, otp, idToken }),
+  verifyOTP: (phone: string, otpToken: string): Promise<ApiResponse<any>> =>
+    apiPost<any>('/auth/verify-otp', { phone, otp_token: otpToken }),
     
-  refresh: (): Promise<ApiResponse<{ token: string }>> =>
-    apiPost<{ token: string }>('/auth/refresh'),
+  refresh: (refreshToken: string): Promise<ApiResponse<any>> =>
+    apiPost<any>('/auth/refresh', { refresh_token: refreshToken }),
     
   logout: (): Promise<ApiResponse<null>> =>
     apiPost<null>('/auth/logout'),
     
   getProfile: (): Promise<ApiResponse<User>> =>
-    apiGet<User>('/auth/profile'),
+    apiGet<User>('/auth/me'),
     
   updateProfile: (userData: Partial<User>): Promise<ApiResponse<User>> =>
-    apiPut<User>('/auth/profile', userData),
+    api.patch<User>('/auth/profile', userData)
+      .then(res => ({ success: true as const, data: res.data }))
+      .catch(err => ({ success: false as const, error: err.response?.data?.message || err.message })),
 };
 
 // File upload helper

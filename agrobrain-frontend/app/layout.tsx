@@ -1,7 +1,5 @@
 import { ReactNode } from 'react';
 import { NextIntlClientProvider } from 'next-intl';
-import { getMessages } from 'next-intl/server';
-import { notFound } from 'next/navigation';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'react-hot-toast';
 import { routing } from '@/i18n/routing';
@@ -12,14 +10,14 @@ const queryClient = new QueryClient();
 
 interface RootLayoutProps {
   children: ReactNode;
-  params: { locale: string };
+  params: { locale?: string };
 }
 
-export function generateStaticParams() {
-  return routing.locales.map((locale) => ({ locale }));
-}
+export const dynamic = 'force-dynamic';
+
 
 export const metadata = {
+  metadataBase: 'http://localhost:3000',
   title: {
     default: 'AgroBrain AI - Smart Farming Assistant',
     template: '%s | AgroBrain AI'
@@ -89,16 +87,13 @@ export const metadata = {
 
 export default async function RootLayout({
   children,
-  params: { locale }
+  params
 }: RootLayoutProps) {
-  // Ensure that the incoming `locale` is valid
-  if (!routing.locales.includes(locale as any)) {
-    notFound();
-  }
-
+  const locale = params?.locale || 'en';
+  
   // Providing all messages to the client
   // side is the easiest way to get started
-  const messages = await getMessages();
+  const messages = await import(`../messages/${locale}.json`).then(m => m.default);
 
   // Structured data for SEO
   const structuredData = {
