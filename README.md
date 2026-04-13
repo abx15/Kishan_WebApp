@@ -4,98 +4,120 @@
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-CSS-38B2AC?style=for-the-badge&logo=tailwind-css)](https://tailwindcss.com/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-005571?style=for-the-badge&logo=fastapi)](https://fastapi.tiangolo.com/)
 [![MongoDB](https://img.shields.io/badge/MongoDB-4EA94B?style=for-the-badge&logo=mongodb)](https://www.mongodb.com/)
+[![Redis](https://img.shields.io/badge/Redis-DC382D?style=for-the-badge&logo=redis)](https://redis.io/)
 
-**AgroBrain AI** is a premium, production-grade intelligence ecosystem designed to revolutionize Indian agriculture. By fusing satellite data, soil matrix analysis, and neural-network-driven expert systems, we provide farmers with actionable intelligence to maximize yield and minimize risk.
-
----
-
-## ✨ Features: The "Living Laboratory" Experience
-
-### 🌍 1. Hyperlocal Intelligence Hub
-- **Satellite Weather**: Real-time precipitation, humidity, and UV tracking with sub-meter coordinate precision.
-- **Neural Forecaster**: AI-driven 7-day outlooks optimized for field operations (irrigation, harvest, spray).
-
-### 🌱 2. Precision Crop Recommendation
-- **Soil Matrix Engine**: Input Nitrogen (N), Phosphorus (P), Potassium (K), pH, and Moisture levels.
-- **Expert matching**: Instant recommendations for the highest-yield crops based on specialized soil chemistry.
-
-### 📈 3. Market Intelligence Portal
-- **Mandi Price Tracking**: Stay updated with real-time crop price fluctuations across Indian markets.
-- **Trend Prediction**: Identify the best time to sell based on seasonal intelligence.
-
-### 🎙️ 4. Neural Voice & Multilingual AI
-- **Hands-Free Operation**: Optimized neural voice assistant for field use.
-- **Agri-Expert Chat**: AI Agronomist support in **Hindi, English, Punjabi, Marathi**, and 8+ regional languages.
-
-### 🔒 5. Institutional-Grade Security
-- **Biometric-Ready Auth**: Secure registration and login flows.
-- **Data Sovereignty**: Encrypted field intelligence data solely for farmer benefit.
+**AgroBrain AI** is a state-of-the-art, production-grade intelligence ecosystem designed to revolutionize Indian agriculture. By fusing satellite telemetry, soil matrix analysis, and neural-network-driven expert systems, we provide farmers with actionable intelligence to maximize yield, minimize resource waste, and mitigate market risks.
 
 ---
 
-## 🛠️ Technology Stack
+## 🏛️ System Architecture: The "Bharat Stack" for Agriculture
 
-| Component | Technology | Description |
+AgroBrain AI is built on a resilient, high-availability micro-services architecture designed to perform in low-connectivity rural environments.
+
+### 🌐 Frontend (The Interface of Growth)
+- **Engine**: Next.js 15 (App Router) for superior performance and SEO.
+- **Design System**: "Living Laboratory" aesthetic—a custom glassmorphic UI using Tailwind CSS and Framer Motion for smooth, organic interactions.
+- **State Management**: Lightweight and reactive state using Zustand.
+- **Resilience**: Client-side caching and optimistic UI updates for seamless use in areas with fluctuating internet.
+
+### ⚙️ Backend (The Neural Core)
+- **Framework**: FastAPI (Asynchronous Python) utilizing Pydantic V2 for strict type safety.
+- **ML Engine**: Scikit-learn powered predictive models for crop variety matching.
+- **Task Orchestration**: APScheduler for automated background jobs (weather alerts, price syncing).
+- **Security**: Rate-limiting via SlowAPI, secure JWT authentication with Firebase, and DNS-over-HTTPS fallbacks for database stability.
+
+---
+
+## 🚀 Specialized Modules
+
+### 🌦️ 1. Weather Intelligence (Satellite-Driven)
+*   **Precision**: Hyperlocal data based on sub-meter field coordinates.
+*   **ML Triggers**: Automated irrigation recommendations based on evapotranspiration rates.
+*   **Alert System**: Real-time pushes for extreme weather events (hail, frost, locust movement).
+
+### 🌱 2. Crop Recommendation (Soil Matrix)
+*   **Chemical Analysis**: Direct mapping of N-P-K (Nitrogen, Phosphorus, Potassium) and pH levels.
+*   **Variety Matching**: Recommends specific crop varieties that maximize profit based on current soil health and climatic conditions.
+
+### 💬 3. Multilingual AI Agronomist
+*   **Neural NLP**: Context-aware conversational AI supporting **Hindi, English, Telugu, Tamil, Marathi, Punjabi**, and more.
+*   **Voice-First**: Integrated neural TTS (Text-to-Speech) and STT (Speech-to-Text) for hands-free field use.
+
+### 💰 4. Market Intelligence Portal
+*   **Live Mandi Prices**: Aggregates real-time price data from major Indian agricultural markets.
+*   **Profit Optimizer**: Predictive charts showing historical price trends to help farmers decide exactly *when* to sell.
+
+---
+
+## 🛠️ Tech Stack Deep-Dive
+
+| Layer | Technologies | Role |
 | :--- | :--- | :--- |
-| **Frontend** | Next.js 15 (App Router) | High-performance, SEO-optimized UI |
-| **Styling** | Tailwind CSS & Framer Motion | Premium "Living Laboratory" aesthetic |
-| **Backend** | FastAPI & Pydantic V2 | Async, high-throughput Python API |
-| **Database** | MongoDB & Redis | Scalable storage with low-latency caching |
-| **AI/ML** | OpenAI GPT-4o & Scikit-learn | Neural logic and predictive modeling |
-| **Real-time** | WebSockets | Live chat and data streaming |
+| **UI/UX** | Next.js 15, Tailwind CSS, Framer Motion, Lucide | Interaction & Visualization |
+| **Logic** | FastAPI, TypeScript, Zustand | Routing & State Management |
+| **Data** | MongoDB (Motor), Redis | Persistence & High-Speed Caching |
+| **AI/ML** | OpenAI GPT-4o, Scikit-learn, LangChain | Reasoning & Predictions |
+| **Infra** | Firebase Auth, GitHub Actions, Docker | Security & CI/CD |
 
 ---
 
-## 📂 Project Structure
+## 📂 Navigation Map
 
 ```text
-├── frontend/              # Next.js 15 Premium UI
-│   ├── app/               # Page routes (Dashboard, Market, Weather, etc.)
-│   ├── components/        # Radix UI + Custom Glassmorphic components
-│   └── lib/               # API clients and shared utilities
-├── backend/               # FastAPI Microservices
-│   ├── app/               # Core logic (AI, Weather, Crops)
-│   ├── models/            # Pydantic schemas and database models
-│   └── scripts/           # Data seeding and setup tools
-└── docs/                  # Detailed architecture and API guides
+├── frontend/                # Next.js 15 Premium UI
+│   ├── app/                 # Page routes (Dashboard, Market, Weather, etc.)
+│   ├── components/          # Radix UI + Custom Glassmorphic components
+│   │   ├── shared/          # Navigation, Sidebar, Theme Toggles
+│   │   └── ui/              # Primitive UI Atom elements
+│   └── lib/                 # API Clients, Utils, Constant Mappings
+├── backend/                 # FastAPI Micro-services
+│   ├── app/
+│   │   ├── routes/          # API Endpoints (Auth, Weather, Chat, Admin)
+│   │   ├── services/        # Business logic & 3rd-party integrations
+│   │   ├── ml/              # Model loaders & predictors
+│   │   └── core/            # Config, Logger, DB, Redis managers
+│   └── scripts/             # Data seeding & setup tools
+└── docs/                    # Integrated documentation hub
 ```
 
 ---
 
-## 🚀 Getting Started
+## 🚦 Installation & Deployment
 
-### 1. Prerequisites
-- Node.js 18+
-- Python 3.10+
-- MongoDB instance (Atlas or Local)
-- Redis server
+### Environment Configuration
+Create a `.env` file in the `backend/` and `frontend/` root:
+```env
+# Backend
+DATABASE_URL=mongodb+srv://...
+REDIS_URL=redis://...
+OPENAI_API_KEY=sk-...
+FIREBASE_CREDENTIALS_PATH=./firebase-key.json
 
-### 2. Frontend Setup
-```bash
-cd frontend
-npm install
-npm run dev
+# Frontend
+NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
 ```
 
-### 3. Backend Setup
-```bash
-cd backend
-python -m venv venv
-./venv/Scripts/activate # On Windows
-pip install -r requirements.txt
-python main.py
-```
+### Quick Initiation
+1. **Frontend**:
+   ```bash
+   cd frontend && npm install && npm run dev
+   ```
+2. **Backend**:
+   ```bash
+   cd backend && pip install -r requirements.txt && python main.py
+   ```
 
 ---
 
-## 📖 Related Documentation
-- [🏗️ System Architecture](docs/architecture.md)
-- [📡 API Documentation](docs/api.md)
-- [🚢 Deployment Guide](docs/deployment.md)
+## 📜 Roadmap
+- [ ] Integration with IoT soil sensors for real-time monitoring.
+- [ ] Image-based pest detection (AgroLens).
+- [ ] Blockchain-based Mandi receipt verification.
+- [ ] Offline-first Progressive Web App (PWA) optimization.
 
 ---
 
 ## 📄 License
-This project is licensed under the **MIT License**.
+Licensed under the **MIT License**.
 
-Built with ❤️ for the backbone of Bharat.
+Built for the future of Indian Agriculture. 🛰️🇮🇳
