@@ -34,6 +34,8 @@ import {
 } from 'recharts';
 import DashboardSidebar from '@/components/shared/DashboardSidebar';
 import { motion } from 'framer-motion';
+import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
+import { useAuth } from '@/contexts/AuthContext';
 
 const soilData = [
   { name: 'Jan', moisture: 45, nutrients: 60 },
@@ -45,29 +47,19 @@ const soilData = [
 ];
 
 const cropPrices = [
-  { crop: 'Wheat', price: '₹2,450', trend: 'up' },
-  { crop: 'Rice', price: '₹2,100', trend: 'up' },
-  { crop: 'Cotton', price: '₹6,800', trend: 'down' },
-  { crop: 'Corn', price: '₹1,950', trend: 'up' },
+  { crop: 'Wheat', price: '2,450', trend: 'up' },
+  { crop: 'Rice', price: '2,100', trend: 'up' },
+  { crop: 'Cotton', price: '6,800', trend: 'down' },
+  { crop: 'Corn', price: '1,950', trend: 'up' },
 ];
 
-export default function DashboardPage() {
-  const router = useRouter();
-  const [userPhone, setUserPhone] = useState('');
+function DashboardContent() {
+  const { user, logout } = useAuth();
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const isLoggedIn = localStorage.getItem('isLoggedIn');
-    const phone = localStorage.getItem('userPhone');
-    
-    if (!isLoggedIn) {
-      router.push('/login');
-      return;
-    }
-    
-    setUserPhone(phone || 'Farmer');
     setTimeout(() => setLoading(false), 800);
-  }, [router]);
+  }, []);
 
   if (loading) {
     return (
@@ -108,11 +100,14 @@ export default function DashboardPage() {
             </button>
             <div className="flex items-center gap-3 pl-6 border-l border-gray-100">
               <div className="text-right hidden sm:block">
-                <p className="text-sm font-bold text-[#1e1c12]">Kishan Kumar</p>
-                <p className="text-xs text-[#6e7b6c]">Punjab, IN</p>
+                <p className="text-sm font-bold text-[#1e1c12]">{user?.name || 'User'}</p>
+                <p className="text-xs text-[#6e7b6c] capitalize">{user?.role || 'Farmer'}</p>
               </div>
               <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-green-100 to-green-200 border-2 border-white overflow-hidden shadow-sm hover:scale-105 transition-transform">
-                <img src="https://ui-avatars.com/api/?name=Kishan+Kumar&background=006b2c&color=fff" alt="Avatar" />
+                <img 
+                  src={user?.avatarUrl || `https://ui-avatars.com/api/?name=${user?.name || 'User'}&background=006b2c&color=fff`} 
+                  alt="Avatar" 
+                />
               </div>
             </div>
           </div>
@@ -124,7 +119,7 @@ export default function DashboardPage() {
             <div>
               <h1 className="text-4xl font-extrabold text-[#1e1c12] tracking-tight mb-2">My Lab Overview</h1>
               <p className="text-[#3e4a3d] font-medium text-lg leading-relaxed">
-                Welcome back! Your soil health is looking <span className="text-[#006b2c] font-bold">Stable</span> today.
+                Welcome back, {user?.name}! Your soil health is looking <span className="text-[#006b2c] font-bold">Stable</span> today.
               </p>
             </div>
             <div className="flex gap-4">
@@ -150,7 +145,7 @@ export default function DashboardPage() {
                 whileHover={{ y: -5 }}
                 className="bg-white/70 backdrop-blur-xl p-8 rounded-[2.5rem] shadow-sm hover:shadow-xl transition-all border border-transparent hover:border-[#006b2c]/10 overflow-hidden group"
               >
-                <div className={cn("w-14 h-14 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform", stat.color)}>
+                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform ${stat.color}`}>
                   <stat.icon className="h-7 w-7" />
                 </div>
                 <p className="text-sm font-bold text-[#6e7b6c] uppercase tracking-wider mb-2">{stat.label}</p>
@@ -243,8 +238,8 @@ export default function DashboardPage() {
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="font-extrabold text-[#1e1c12]">{item.price}</p>
-                        <p className={cn("text-xs font-bold flex items-center justify-end", item.trend === 'up' ? 'text-green-600' : 'text-red-500')}>
+                        <p className="font-extrabold text-[#1e1c12]">Rs {item.price}</p>
+                        <p className={`text-xs font-bold flex items-center justify-end ${item.trend === 'up' ? 'text-green-600' : 'text-red-500'}`}>
                           {item.trend === 'up' ? <TrendingUp className="h-3 w-3 mr-1" /> : <TrendingDown className="h-3 w-3 mr-1" />}
                           {item.trend === 'up' ? '+1.2%' : '-0.5%'}
                         </p>
@@ -273,5 +268,13 @@ export default function DashboardPage() {
         </div>
       </main>
     </div>
+  );
+}
+
+export default function DashboardPage() {
+  return (
+    <ProtectedRoute>
+      <DashboardContent />
+    </ProtectedRoute>
   );
 }

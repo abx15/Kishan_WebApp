@@ -26,6 +26,7 @@ import {
 } from '@/components/ui/accordion';
 import { Card, CardContent } from '@/components/ui/card';
 import { useRouter } from 'next/navigation';
+import PublicNavbar from '@/components/layout/PublicNavbar';
 
 const faqs = [
   {
@@ -57,24 +58,7 @@ export default function ContactPage() {
 
   return (
     <div className="min-h-screen bg-[#fff9eb] text-[#1e1c12] selection:bg-green-100">
-      {/* Navigation */}
-      <nav className="sticky top-0 z-50 bg-white/70 backdrop-blur-xl border-b border-[#006b2c]/10 h-20 flex items-center">
-        <div className="max-w-7xl mx-auto px-6 lg:px-8 w-full flex justify-between items-center">
-          <div 
-             onClick={() => router.push('/')}
-             className="flex items-center gap-3 cursor-pointer"
-          >
-            <div className="p-2.5 bg-[#006b2c] rounded-xl">
-              <Sprout className="h-6 w-6 text-white" />
-            </div>
-            <span className="text-2xl font-bold tracking-tight">AgroBrain AI</span>
-          </div>
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" onClick={() => router.push('/login')} className="text-[#1e1c12]">Sign In</Button>
-            <Button onClick={() => router.push('/register')} className="bg-[#006b2c] text-white rounded-xl">Get Started</Button>
-          </div>
-        </div>
-      </nav>
+      <PublicNavbar />
 
       {/* Hero */}
       <section className="py-24 px-6 lg:px-8 text-center bg-gradient-to-b from-white to-transparent">
@@ -100,7 +84,7 @@ export default function ContactPage() {
                  <Mail className="h-6 w-6 text-[#006b2c]" />
                </div>
                <h3 className="font-bold text-lg mb-2">Email Support</h3>
-               <p className="text-[#6e7b6c] text-sm font-medium">support@agrobrain.ai</p>
+               <p className="text-[#6e7b6c] text-sm font-medium">arun.builds.tech@gmail.com</p>
                <p className="text-[#bdcaba] text-xs mt-1">24 Hour Response Time</p>
              </Card>
              <Card className="border-0 shadow-sm bg-white p-8 rounded-3xl">

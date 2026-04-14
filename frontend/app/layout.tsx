@@ -1,6 +1,7 @@
 import { ReactNode } from 'react';
 import './globals.css';
 import { Inter, DM_Sans } from 'next/font/google';
+import { AuthProvider } from '@/contexts/AuthContext';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -35,7 +36,9 @@ export default function RootLayout({
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes" />
       </head>
       <body className="antialiased">
-        {children}
+        <AuthProvider>
+          {children}
+        </AuthProvider>
       </body>
     </html>
   );

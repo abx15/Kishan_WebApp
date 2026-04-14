@@ -1,136 +1,310 @@
-import { initializeApp } from 'firebase/app';
-import { 
-  getAuth, 
-  signInWithPhoneNumber,
-  signOut as firebaseSignOut,
-  onAuthStateChanged,
-  User as FirebaseUser,
-  RecaptchaVerifier,
-  ConfirmationResult
-} from 'firebase/auth';
 import { User } from '@/types';
 
-// Firebase configuration
-const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+// API base URL
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
+// Token storage keys
+const ACCESS_TOKEN_KEY = 'access_token';
+const REFRESH_TOKEN_KEY = 'refresh_token';
+const USER_KEY = 'user';
+
+// Auth response interface
+export interface AuthResponse {
+  access_token: string;
+  refresh_token: string;
+  token_type: string;
+  expires_in: number;
+  user: User;
+}
+
+// Login request interface
+export interface LoginRequest {
+  email: string;
+  password: string;
+}
+
+// Register request interface
+export interface RegisterRequest {
+  username: string;
+  email: string;
+  password: string;
+  name: string;
+  phone?: string;
+  role: 'farmer' | 'agronomist';
+  language: 'hi' | 'en';
+}
+
+// Google auth request interface
+export interface GoogleAuthRequest {
+  google_token: string;
+}
+
+// Token management
+export const getAccessToken = (): string | null => {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem(ACCESS_TOKEN_KEY);
 };
 
-// Initialize Firebase
-let app: any = null;
-let auth: any = null;
-
-export const initFirebase = (): void => {
-  if (!app) {
-    app = initializeApp(firebaseConfig);
-    auth = getAuth(app);
-  }
+export const getRefreshToken = (): string | null => {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem(REFRESH_TOKEN_KEY);
 };
 
-// Convert Firebase user to app user
-const firebaseUserToAppUser = (firebaseUser: FirebaseUser): User => ({
-  id: firebaseUser.uid,
-  phone: firebaseUser.phoneNumber || '',
-  name: firebaseUser.displayName || '',
-  language: 'hi', // Default to Hindi for Indian farmers
-  avatarUrl: firebaseUser.photoURL || undefined,
-  defaultLocation: {
-    lat: 0,
-    lng: 0,
-  },
-  farmProfile: {
-    totalAreaAcres: 0,
-    soilType: '',
-    primaryCrops: [],
-    irrigationType: '',
-    hasSoilSensor: false,
-  },
-  isVerified: false,
-  role: 'farmer',
-});
+export const setTokens = (access_token: string, refresh_token: string): void => {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(ACCESS_TOKEN_KEY, access_token);
+  localStorage.setItem(REFRESH_TOKEN_KEY, refresh_token);
+};
 
-// Phone authentication functions
-export const sendOTP = async (phone: string): Promise<ConfirmationResult> => {
-  initFirebase();
+export const clearTokens = (): void => {
+  if (typeof window === 'undefined') return;
+  localStorage.removeItem(ACCESS_TOKEN_KEY);
+  localStorage.removeItem(REFRESH_TOKEN_KEY);
+  localStorage.removeItem(USER_KEY);
+};
+
+// User management
+export const getCurrentUser = (): User | null => {
+  if (typeof window === 'undefined') return null;
+  const userStr = localStorage.getItem(USER_KEY);
+  return userStr ? JSON.parse(userStr) : null;
+};
+
+export const setCurrentUser = (user: User): void => {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(USER_KEY, JSON.stringify(user));
+};
+
+// API helper with authentication
+export const apiCall = async (
+  endpoint: string,
+  options: RequestInit = {}
+): Promise<Response> => {
+  const token = getAccessToken();
   
-  try {
-    const recaptchaVerifier = new RecaptchaVerifier(auth, 'sign-in-button');
-    
-    // Wait for reCAPTCHA to be ready
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    const confirmationResult = await signInWithPhoneNumber(auth, phone, recaptchaVerifier);
-    return confirmationResult;
-  } catch (error: any) {
-    throw new Error(error.message || 'Failed to send OTP');
-  }
-};
+  const config: RequestInit = {
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token && { Authorization: `Bearer ${token}` }),
+      ...options.headers,
+    },
+    ...options,
+  };
 
-export const verifyOTP = async (confirmationResult: ConfirmationResult, code: string): Promise<{ user: User; idToken: string }> => {
-  try {
-    const result = await confirmationResult.confirm(code);
-    const user = firebaseUserToAppUser(result.user);
-    
-    const idToken = await result.user.getIdToken();
-    
-    return { user, idToken };
-  } catch (error: any) {
-    throw new Error(error.message || 'OTP verification failed');
-  }
-};
+  const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
 
-export const getIdToken = async (): Promise<string> => {
-  initFirebase();
-  
-  try {
-    const currentUser = auth.currentUser;
-    if (!currentUser) {
-      throw new Error('No user logged in');
-    }
-    
-    return await currentUser.getIdToken();
-  } catch (error: any) {
-    throw new Error(error.message || 'Failed to get ID token');
-  }
-};
-
-export const signOut = async (): Promise<void> => {
-  initFirebase();
-  
-  try {
-    await firebaseSignOut(auth);
-  } catch (error: any) {
-    throw new Error(error.message || 'Sign out failed');
-  }
-};
-
-export const getCurrentUser = (): Promise<User | null> => {
-  initFirebase();
-  
-  return new Promise((resolve) => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-      unsubscribe();
-      if (firebaseUser) {
-        resolve(firebaseUserToAppUser(firebaseUser));
-      } else {
-        resolve(null);
+  // Handle 401 Unauthorized - try to refresh token
+  if (response.status === 401) {
+    const refreshSuccess = await refreshAccessToken();
+    if (refreshSuccess) {
+      // Retry the original request with new token
+      const newToken = getAccessToken();
+      if (newToken) {
+        config.headers = {
+          ...config.headers,
+          Authorization: `Bearer ${newToken}`,
+        };
+        return fetch(`${API_BASE_URL}${endpoint}`, config);
       }
-    });
-  });
+    }
+    // If refresh failed, clear tokens and redirect to login
+    clearTokens();
+    if (typeof window !== 'undefined') {
+      window.location.href = '/auth';
+    }
+  }
+
+  return response;
 };
 
-export const onAuthChange = (callback: (user: User | null) => void) => {
-  initFirebase();
-  
-  return onAuthStateChanged(auth, (firebaseUser) => {
-    if (firebaseUser) {
-      callback(firebaseUserToAppUser(firebaseUser));
-    } else {
-      callback(null);
-    }
+// Authentication functions
+export const login = async (email: string, password: string): Promise<AuthResponse> => {
+  const response = await fetch(`${API_BASE_URL}/api/v1/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
   });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || 'Login failed');
+  }
+
+  const data: AuthResponse = await response.json();
+  setTokens(data.access_token, data.refresh_token);
+  setCurrentUser(data.user);
+  return data;
+};
+
+export const register = async (userData: RegisterRequest): Promise<any> => {
+  const response = await fetch(`${API_BASE_URL}/api/v1/auth/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(userData),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || 'Registration failed');
+  }
+
+  return response.json();
+};
+
+export const googleAuth = async (google_token: string): Promise<AuthResponse> => {
+  const response = await fetch(`${API_BASE_URL}/api/v1/auth/google`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ google_token }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || 'Google authentication failed');
+  }
+
+  const data: AuthResponse = await response.json();
+  setTokens(data.access_token, data.refresh_token);
+  setCurrentUser(data.user);
+  return data;
+};
+
+export const logout = async (): Promise<void> => {
+  try {
+    await apiCall('/api/v1/auth/logout', { method: 'POST' });
+  } catch (error) {
+    // Continue with logout even if API call fails
+    console.error('Logout API call failed:', error);
+  } finally {
+    clearTokens();
+  }
+};
+
+export const refreshAccessToken = async (): Promise<boolean> => {
+  const refreshToken = getRefreshToken();
+  if (!refreshToken) return false;
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/v1/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    });
+
+    if (!response.ok) {
+      return false;
+    }
+
+    const data: AuthResponse = await response.json();
+    setTokens(data.access_token, data.refresh_token);
+    setCurrentUser(data.user);
+    return true;
+  } catch (error) {
+    console.error('Token refresh failed:', error);
+    return false;
+  }
+};
+
+export const forgotPassword = async (email: string): Promise<void> => {
+  const response = await fetch(`${API_BASE_URL}/api/v1/auth/forgot-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || 'Failed to send reset email');
+  }
+};
+
+export const resetPassword = async (token: string, new_password: string): Promise<void> => {
+  const response = await fetch(`${API_BASE_URL}/api/v1/auth/reset-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token, new_password }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || 'Failed to reset password');
+  }
+};
+
+export const verifyEmail = async (token: string): Promise<void> => {
+  const response = await fetch(`${API_BASE_URL}/api/v1/auth/verify-email?token=${token}`);
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || 'Email verification failed');
+  }
+};
+
+export const updateProfile = async (userData: Partial<User>): Promise<User> => {
+  const response = await apiCall('/api/v1/auth/profile', {
+    method: 'PATCH',
+    body: JSON.stringify(userData),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || 'Failed to update profile');
+  }
+
+  const updatedUser: User = await response.json();
+  setCurrentUser(updatedUser);
+  return updatedUser;
+};
+
+export const changePassword = async (current_password: string, new_password: string): Promise<void> => {
+  const response = await apiCall('/api/v1/auth/change-password', {
+    method: 'POST',
+    body: JSON.stringify({ current_password, new_password }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || 'Failed to change password');
+  }
+};
+
+export const checkUsernameAvailability = async (username: string): Promise<boolean> => {
+  const response = await fetch(`${API_BASE_URL}/api/v1/auth/check-username?username=${username}`);
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || 'Failed to check username');
+  }
+
+  const data = await response.json();
+  return data.available;
+};
+
+export const checkEmailAvailability = async (email: string): Promise<boolean> => {
+  const response = await fetch(`${API_BASE_URL}/api/v1/auth/check-email?email=${email}`);
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || 'Failed to check email');
+  }
+
+  const data = await response.json();
+  return data.available;
+};
+
+// Auth context hook
+export const useAuth = () => {
+  const user = getCurrentUser();
+  const token = getAccessToken();
+  
+  return {
+    user,
+    token,
+    isAuthenticated: !!token && !!user,
+    login,
+    register,
+    googleAuth,
+    logout,
+    refreshAccessToken,
+  };
 };
