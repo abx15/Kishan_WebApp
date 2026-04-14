@@ -166,6 +166,19 @@ try:
 except ImportError:
     logger.debug("Voice router not found, skipping")
 
+# Include new dashboard routes
+try:
+    from app.routes.farmer import router as farmer_router
+    app.include_router(farmer_router, prefix="/api/v1")
+except ImportError:
+    logger.debug("Farmer router not found, skipping")
+
+try:
+    from app.routes.agronomist import router as agronomist_router
+    app.include_router(agronomist_router, prefix="/api/v1")
+except ImportError:
+    logger.debug("Agronomist router not found, skipping")
+
 
 # ─── Health Check ─────────────────────────────────────────────────
 @app.get("/health", tags=["System"])

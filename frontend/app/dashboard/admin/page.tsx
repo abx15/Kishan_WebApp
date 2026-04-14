@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { getAdminStats, getRecentUsers } from '@/lib/services';
+import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -22,33 +24,51 @@ import {
   Edit,
   Trash2,
   Download,
-  RefreshCw
+  RefreshCw,
+  Loader2
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
-import { useAuth } from '@/contexts/AuthContext';
-
-const adminStats = [
-  { icon: Users, label: 'Total Users', value: '1,247', change: '+12%', color: 'bg-blue-500/10 text-blue-600' },
-  { icon: Activity, label: 'Active Sessions', value: '342', change: '+8%', color: 'bg-green-500/10 text-green-600' },
-  { icon: Shield, label: 'Verified Agronomists', value: '89', change: '+15%', color: 'bg-purple-500/10 text-purple-600' },
-  { icon: AlertTriangle, label: 'Pending Issues', value: '23', change: '-5%', color: 'bg-orange-500/10 text-orange-600' },
-];
-
-const recentUsers = [
-  { id: 1, name: 'Ramesh Kumar', email: 'ramesh@example.com', role: 'farmer', status: 'active', joined: '2024-01-15' },
-  { id: 2, name: 'Dr. Priya Sharma', email: 'priya@example.com', role: 'agronomist', status: 'pending', joined: '2024-01-14' },
-  { id: 3, name: 'Suresh Patel', email: 'suresh@example.com', role: 'farmer', status: 'active', joined: '2024-01-13' },
-  { id: 4, name: 'Amit Singh', email: 'amit@example.com', role: 'admin', status: 'active', joined: '2024-01-12' },
-];
 
 function AdminDashboardContent() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [selectedTab, setSelectedTab] = useState('overview');
+  const [adminStats, setAdminStats] = useState({
+    totalUsers: 0,
+    activeSessions: 0,
+    verifiedAgronomists: 0,
+    pendingIssues: 0
+  });
+  const [recentUsers, setRecentUsers] = useState([]);
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      router.push('/auth');
+    } catch (error) {
+      console.error('Logout failed:', error);
+    }
+  };
 
   useEffect(() => {
-    setTimeout(() => setLoading(false), 800);
+    const fetchAdminData = async () => {
+      try {
+        const [stats, users] = await Promise.all([
+          getAdminStats(),
+          getRecentUsers()
+        ]);
+        setAdminStats(stats);
+        setRecentUsers(users);
+      } catch (error) {
+        console.error('Failed to fetch admin data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAdminData();
   }, []);
 
   if (loading) {
@@ -108,7 +128,11 @@ function AdminDashboardContent() {
               <p className="text-xs text-gray-400">Administrator</p>
             </div>
           </div>
-          <Button variant="outline" className="w-full border-gray-600 text-gray-300 hover:bg-gray-800">
+          <Button 
+            variant="outline" 
+            className="w-full border-gray-600 text-gray-300 hover:bg-gray-800"
+            onClick={handleLogout}
+          >
             <Lock className="h-4 w-4 mr-2" />
             Logout
           </Button>
@@ -145,7 +169,12 @@ function AdminDashboardContent() {
             >
               {/* Stats Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                {adminStats.map((stat, i) => (
+                {[
+                  { icon: Users, label: 'Total Users', value: adminStats.totalUsers, change: '+12%', color: 'bg-blue-500/10 text-blue-600' },
+                  { icon: Activity, label: 'Active Sessions', value: adminStats.activeSessions, change: '+8%', color: 'bg-green-500/10 text-green-600' },
+                  { icon: Shield, label: 'Verified Agronomists', value: adminStats.verifiedAgronomists, change: '+15%', color: 'bg-purple-500/10 text-purple-600' },
+                  { icon: AlertTriangle, label: 'Pending Issues', value: adminStats.pendingIssues, change: '-5%', color: 'bg-orange-500/10 text-orange-600' },
+                ].map((stat, i) => (
                   <motion.div
                     key={i}
                     whileHover={{ y: -5 }}
@@ -176,7 +205,7 @@ function AdminDashboardContent() {
                 <CardContent>
                   <div className="space-y-4">
                     {recentUsers.map((user) => (
-                      <div key={user.id} className="flex items-center justify-between p-4 border border-gray-100 rounded-lg">
+                      <div key={user.id} className="flex items-center justify-between p-4 border border-gray-100 rounded-lg hover:bg-gray-50 transition-colors">
                         <div className="flex items-center gap-4">
                           <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center font-semibold">
                             {user.name[0]}
@@ -186,7 +215,7 @@ function AdminDashboardContent() {
                             <p className="text-sm text-gray-600">{user.email}</p>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="text-right space-y-2">
                           <Badge className={
                             user.status === 'active' ? 'bg-green-100 text-green-700' :
                             user.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
@@ -195,6 +224,10 @@ function AdminDashboardContent() {
                             {user.status}
                           </Badge>
                           <Badge variant="outline">{user.role}</Badge>
+                          <div className="flex items-center gap-1 text-xs text-gray-500">
+                            <Mail className="h-3 w-3" />
+                            <span>{user.joined}</span>
+                          </div>
                         </div>
                       </div>
                     ))}

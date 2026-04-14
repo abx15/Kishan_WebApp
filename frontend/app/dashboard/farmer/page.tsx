@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -23,11 +22,13 @@ import {
   Activity,
   Wind,
   Eye,
-  RefreshCw
+  RefreshCw,
+  Lock
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
+import { useRouter } from 'next/navigation';
 
 const farmerStats = [
   { icon: Sprout, label: 'Crop Health', value: 'Excellent', sub: 'No pests detected', color: 'bg-green-500/10 text-green-600' },
@@ -50,9 +51,19 @@ const weatherForecast = [
 ];
 
 function FarmerDashboardContent() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [selectedTab, setSelectedTab] = useState('overview');
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      router.push('/auth');
+    } catch (error) {
+      console.error('Logout failed:', error);
+    }
+  };
 
   useEffect(() => {
     setTimeout(() => setLoading(false), 800);
@@ -115,9 +126,21 @@ function FarmerDashboardContent() {
               <p className="text-xs text-green-200">Farmer</p>
             </div>
           </div>
-          <Button variant="outline" className="w-full border-green-600 text-green-100 hover:bg-green-800">
+          <Button 
+            variant="outline" 
+            className="w-full border-green-600 text-green-100 hover:bg-green-800"
+            onClick={handleLogout}
+          >
             <Eye className="h-4 w-4 mr-2" />
             View Profile
+          </Button>
+          <Button 
+            variant="outline" 
+            className="w-full border-green-600 text-green-100 hover:bg-green-800 mt-2"
+            onClick={handleLogout}
+          >
+            <Lock className="h-4 w-4 mr-2" />
+            Logout
           </Button>
         </div>
       </div>

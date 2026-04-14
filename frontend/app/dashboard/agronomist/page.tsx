@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -25,11 +24,13 @@ import {
   Clock,
   Star,
   BookOpen,
-  Lightbulb
+  Lightbulb,
+  Lock
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
+import { useRouter } from 'next/navigation';
 
 const agronomistStats = [
   { icon: Users, label: 'Farmers Helped', value: '147', change: '+12 this week', color: 'bg-blue-500/10 text-blue-600' },
@@ -93,9 +94,19 @@ const advisoryTips = [
 ];
 
 function AgronomistDashboardContent() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [selectedTab, setSelectedTab] = useState('overview');
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      router.push('/auth');
+    } catch (error) {
+      console.error('Logout failed:', error);
+    }
+  };
 
   useEffect(() => {
     setTimeout(() => setLoading(false), 800);
@@ -176,9 +187,21 @@ function AgronomistDashboardContent() {
               <p className="text-xs text-purple-200">Agronomist</p>
             </div>
           </div>
-          <Button variant="outline" className="w-full border-purple-600 text-purple-100 hover:bg-purple-800">
+          <Button 
+            variant="outline" 
+            className="w-full border-purple-600 text-purple-100 hover:bg-purple-800"
+            onClick={handleLogout}
+          >
             <Eye className="h-4 w-4 mr-2" />
             View Profile
+          </Button>
+          <Button 
+            variant="outline" 
+            className="w-full border-purple-600 text-purple-100 hover:bg-purple-800 mt-2"
+            onClick={handleLogout}
+          >
+            <Lock className="h-4 w-4 mr-2" />
+            Logout
           </Button>
         </div>
       </div>
