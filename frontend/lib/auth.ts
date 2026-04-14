@@ -119,7 +119,7 @@ export const apiCall = async (
 
 // Authentication functions
 export const login = async (email: string, password: string): Promise<AuthResponse> => {
-  const response = await fetch(`${API_BASE_URL}/api/v1/auth/login`, {
+  const response = await fetch(`${API_BASE_URL}/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password }),
@@ -139,7 +139,7 @@ export const login = async (email: string, password: string): Promise<AuthRespon
 };
 
 export const register = async (userData: RegisterRequest): Promise<any> => {
-  const response = await fetch(`${API_BASE_URL}/api/v1/auth/register`, {
+  const response = await fetch(`${API_BASE_URL}/auth/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(userData),
@@ -156,7 +156,7 @@ export const register = async (userData: RegisterRequest): Promise<any> => {
 };
 
 export const googleAuth = async (google_token: string): Promise<AuthResponse> => {
-  const response = await fetch(`${API_BASE_URL}/api/v1/auth/google`, {
+  const response = await fetch(`${API_BASE_URL}/auth/google`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ google_token }),
@@ -175,7 +175,7 @@ export const googleAuth = async (google_token: string): Promise<AuthResponse> =>
 
 export const logout = async (): Promise<void> => {
   try {
-    await apiCall('/api/v1/auth/logout', { method: 'POST' });
+    await apiCall('/auth/logout', { method: 'POST' });
   } catch (error) {
     // Continue with logout even if API call fails
     console.error('Logout API call failed:', error);
@@ -189,7 +189,7 @@ export const refreshAccessToken = async (): Promise<boolean> => {
   if (!refreshToken) return false;
 
   try {
-    const response = await fetch(`${API_BASE_URL}/api/v1/auth/refresh`, {
+    const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ refresh_token: refreshToken }),
@@ -210,7 +210,7 @@ export const refreshAccessToken = async (): Promise<boolean> => {
 };
 
 export const forgotPassword = async (email: string): Promise<void> => {
-  const response = await fetch(`${API_BASE_URL}/api/v1/auth/forgot-password`, {
+  const response = await fetch(`${API_BASE_URL}/auth/forgot-password`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email }),
@@ -223,7 +223,7 @@ export const forgotPassword = async (email: string): Promise<void> => {
 };
 
 export const resetPassword = async (token: string, new_password: string): Promise<void> => {
-  const response = await fetch(`${API_BASE_URL}/api/v1/auth/reset-password`, {
+  const response = await fetch(`${API_BASE_URL}/auth/reset-password`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ token, new_password }),
@@ -236,7 +236,7 @@ export const resetPassword = async (token: string, new_password: string): Promis
 };
 
 export const verifyEmail = async (token: string): Promise<void> => {
-  const response = await fetch(`${API_BASE_URL}/api/v1/auth/verify-email?token=${token}`);
+  const response = await fetch(`${API_BASE_URL}/auth/verify-email?token=${token}`);
 
   if (!response.ok) {
     const error = await response.json();
@@ -273,7 +273,7 @@ export const changePassword = async (current_password: string, new_password: str
 };
 
 export const checkUsernameAvailability = async (username: string): Promise<boolean> => {
-  const response = await fetch(`${API_BASE_URL}/api/v1/auth/check-username?username=${username}`);
+  const response = await fetch(`${API_BASE_URL}/auth/check-username?username=${username}`);
 
   if (!response.ok) {
     const error = await response.json();
@@ -285,7 +285,7 @@ export const checkUsernameAvailability = async (username: string): Promise<boole
 };
 
 export const checkEmailAvailability = async (email: string): Promise<boolean> => {
-  const response = await fetch(`${API_BASE_URL}/api/v1/auth/check-email?email=${email}`);
+  const response = await fetch(`${API_BASE_URL}/auth/check-email?email=${email}`);
 
   if (!response.ok) {
     const error = await response.json();

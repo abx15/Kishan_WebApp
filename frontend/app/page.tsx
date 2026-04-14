@@ -812,7 +812,7 @@ export default function HomePage() {
             <div className="flex flex-col md:flex-row justify-between items-center gap-6">
               <div className="text-center md:text-left text-sm text-[#bdcaba]">
                 <p>&copy; 2026 AgroBrain AI. Digital Agriculture for Bharat.</p>
-                <p className="text-xs mt-2">Made with <Heart className="inline h-3 w-3 text-red-400 fill-red-400" /> for Indian farmers</p>
+                <div className="text-xs mt-2">Made with <Heart className="inline h-3 w-3 text-red-400 fill-red-400" /> for Indian farmers</div>
               </div>
               <div className="flex items-center gap-6 text-sm text-[#bdcaba]">
                 <div className="flex items-center gap-2">
