@@ -34,3 +34,7 @@ node_modules/
 # Firebase credentials
 firebase-credentials.json
 serviceAccountKey.json
+
+
+
+users-login-details.md
