@@ -133,49 +133,49 @@ async def internal_error_handler(request: Request, exc):
 # ─── Routers ──────────────────────────────────────────────────────
 # ─── Routers ──────────────────────────────────────────────────────
 from app.routes.auth import router as auth_router
-app.include_router(auth_router, prefix="/api/v1")
+app.include_router(auth_router, prefix="/api")
 
 # Include other routers
 try:
     from app.routes.admin import router as admin_router
-    app.include_router(admin_router, prefix="/api/v1")
+    app.include_router(admin_router, prefix="/api")
 except ImportError:
     logger.debug("Admin router not found, skipping")
 
 try:
     from app.routes.weather import router as weather_router
-    app.include_router(weather_router, prefix="/api/v1")
+    app.include_router(weather_router, prefix="/api")
 except ImportError:
     logger.debug("Weather router not found, skipping")
 
 try:
     from app.routes.recommend import router as recommend_router
-    app.include_router(recommend_router, prefix="/api/v1")
+    app.include_router(recommend_router, prefix="/api")
 except ImportError:
     logger.debug("Recommend router not found, skipping")
 
 try:
     from app.routes.chat import router as chat_router
-    app.include_router(chat_router, prefix="/api/v1")
+    app.include_router(chat_router, prefix="/api")
 except ImportError:
     logger.debug("Chat router not found, skipping")
 
 try:
     from app.routes.voice import router as voice_router
-    app.include_router(voice_router, prefix="/api/v1")
+    app.include_router(voice_router, prefix="/api")
 except ImportError:
     logger.debug("Voice router not found, skipping")
 
 # Include new dashboard routes
 try:
     from app.routes.farmer import router as farmer_router
-    app.include_router(farmer_router, prefix="/api/v1")
+    app.include_router(farmer_router, prefix="/api")
 except ImportError:
     logger.debug("Farmer router not found, skipping")
 
 try:
     from app.routes.agronomist import router as agronomist_router
-    app.include_router(agronomist_router, prefix="/api/v1")
+    app.include_router(agronomist_router, prefix="/api")
 except ImportError:
     logger.debug("Agronomist router not found, skipping")
 

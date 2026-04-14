@@ -119,7 +119,7 @@ export const apiCall = async (
 
 // Authentication functions
 export const login = async (email: string, password: string): Promise<AuthResponse> => {
-  const response = await fetch(`${API_BASE_URL}/auth/login`, {
+  const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password }),
@@ -139,7 +139,7 @@ export const login = async (email: string, password: string): Promise<AuthRespon
 };
 
 export const register = async (userData: RegisterRequest): Promise<any> => {
-  const response = await fetch(`${API_BASE_URL}/auth/register`, {
+  const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(userData),
@@ -156,7 +156,7 @@ export const register = async (userData: RegisterRequest): Promise<any> => {
 };
 
 export const googleAuth = async (google_token: string): Promise<AuthResponse> => {
-  const response = await fetch(`${API_BASE_URL}/auth/google`, {
+  const response = await fetch(`${API_BASE_URL}/api/auth/google`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ google_token }),
@@ -210,7 +210,7 @@ export const refreshAccessToken = async (): Promise<boolean> => {
 };
 
 export const forgotPassword = async (email: string): Promise<void> => {
-  const response = await fetch(`${API_BASE_URL}/auth/forgot-password`, {
+  const response = await fetch(`${API_BASE_URL}/api/auth/forgot-password`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email }),
@@ -223,7 +223,7 @@ export const forgotPassword = async (email: string): Promise<void> => {
 };
 
 export const resetPassword = async (token: string, new_password: string): Promise<void> => {
-  const response = await fetch(`${API_BASE_URL}/auth/reset-password`, {
+  const response = await fetch(`${API_BASE_URL}/api/auth/reset-password`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ token, new_password }),
@@ -236,7 +236,7 @@ export const resetPassword = async (token: string, new_password: string): Promis
 };
 
 export const verifyEmail = async (token: string): Promise<void> => {
-  const response = await fetch(`${API_BASE_URL}/auth/verify-email?token=${token}`);
+  const response = await fetch(`${API_BASE_URL}/api/auth/verify-email?token=${token}`);
 
   if (!response.ok) {
     const error = await response.json();
@@ -245,7 +245,7 @@ export const verifyEmail = async (token: string): Promise<void> => {
 };
 
 export const updateProfile = async (userData: Partial<User>): Promise<User> => {
-  const response = await apiCall('/api/v1/auth/profile', {
+  const response = await apiCall('/api/auth/profile', {
     method: 'PATCH',
     body: JSON.stringify(userData),
   });
@@ -261,7 +261,7 @@ export const updateProfile = async (userData: Partial<User>): Promise<User> => {
 };
 
 export const changePassword = async (current_password: string, new_password: string): Promise<void> => {
-  const response = await apiCall('/api/v1/auth/change-password', {
+  const response = await apiCall('/api/auth/change-password', {
     method: 'POST',
     body: JSON.stringify({ current_password, new_password }),
   });
@@ -273,7 +273,7 @@ export const changePassword = async (current_password: string, new_password: str
 };
 
 export const checkUsernameAvailability = async (username: string): Promise<boolean> => {
-  const response = await fetch(`${API_BASE_URL}/auth/check-username?username=${username}`);
+  const response = await fetch(`${API_BASE_URL}/api/auth/check-username?username=${username}`);
 
   if (!response.ok) {
     const error = await response.json();
@@ -285,7 +285,7 @@ export const checkUsernameAvailability = async (username: string): Promise<boole
 };
 
 export const checkEmailAvailability = async (email: string): Promise<boolean> => {
-  const response = await fetch(`${API_BASE_URL}/auth/check-email?email=${email}`);
+  const response = await fetch(`${API_BASE_URL}/api/auth/check-email?email=${email}`);
 
   if (!response.ok) {
     const error = await response.json();

@@ -48,7 +48,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // Verify token is still valid by making a lightweight API call
           // This could be a /api/v1/auth/me endpoint
           try {
-            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/auth/me`, {
+            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/auth/me`, {
               headers: {
                 'Authorization': `Bearer ${storedToken}`,
                 'Content-Type': 'application/json',
