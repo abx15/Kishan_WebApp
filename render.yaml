@@ -1,0 +1,55 @@
+services:
+  # Backend FastAPI Service
+  - type: web
+    name: agrobrain-backend
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.9
+      - key: MONGODB_URL
+        fromDatabase:
+          name: agrobrain-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: agrobrain-redis
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+        length: 64
+      - key: ALGORITHM
+        value: HS256
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: 60
+      - key: REFRESH_TOKEN_EXPIRE_DAYS
+        value: 30
+      - key: FRONTEND_URL
+        value: https://agrobrain-frontend.vercel.app
+      - key: DEBUG
+        value: False
+      - key: NODE_ENV
+        value: production
+      - key: CORS_ORIGINS
+        value: https://agrobrain-frontend.vercel.app,https://localhost:3000
+
+# MongoDB Database
+databases:
+  - name: agrobrain-db
+    databaseName: agrobrain
+    user: agrobrain_user
+    plan: free
+    ipAllowList: []
+
+# Redis Service
+services:
+  - type: redis
+    name: agrobrain-redis
+    plan: free
+    ipAllowList: []
+    maxMemoryPolicy: noeviction
