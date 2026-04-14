@@ -118,7 +118,7 @@ async def chat_websocket(
     from bson import ObjectId
     
     try:
-        payload = jwt.decode(token, settings.jwt_secret_key, algorithms=["HS256"])
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         user_id = payload.get("sub")
         if not user_id:
             await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
@@ -129,7 +129,8 @@ async def chat_websocket(
             await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
             return
             
-    except Exception:
+    except Exception as e:
+        logger.warning(f"WebSocket auth failed: {e}")
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return
 

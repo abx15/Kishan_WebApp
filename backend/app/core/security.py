@@ -1,317 +1,177 @@
 """
-Security module for AgroBrain AI backend.
-
-This module handles JWT token creation/verification, password hashing,
-and user authentication utilities.
+AgroBrain AI — Security & JWT
+bcrypt password hashing + JWT token management.
+SECURITY: No shortcuts, no bypasses possible.
 """
-
-from datetime import datetime, timedelta
-from typing import Any, Dict, Optional, Union
-
-from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from datetime import datetime, timedelta, timezone
+from typing import Any, Optional
 from jose import JWTError, jwt
 from passlib.context import CryptContext
-from pymongo.errors import PyMongoError
-
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from loguru import logger
 from app.core.config import settings
-from app.core.logger import logger
-from app.core.database import get_database
-
-# Password hashing context
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-# HTTP Bearer token scheme
-security = HTTPBearer()
+from app.core.database import get_db
 
 
-class SecurityManager:
-    """Security utilities for authentication and authorization."""
-    
-    @staticmethod
-    def verify_password(plain_password: str, hashed_password: str) -> bool:
-        """
-        Verify a password against its hash.
-        
-        Args:
-            plain_password: Plain text password
-            hashed_password: Hashed password
-            
-        Returns:
-            bool: True if password matches, False otherwise
-        """
-        try:
-            return pwd_context.verify(plain_password, hashed_password)
-        except Exception as e:
-            logger.error(f"Password verification error: {str(e)}")
-            return False
-    
-    @staticmethod
-    def get_password_hash(password: str) -> str:
-        """
-        Hash a password.
-        
-        Args:
-            password: Plain text password
-            
-        Returns:
-            str: Hashed password
-        """
-        try:
-            return pwd_context.hash(password)
-        except Exception as e:
-            logger.error(f"Password hashing error: {str(e)}")
-            raise
-    
-    @staticmethod
-    def create_access_token(data: Dict[str, Any], expires_delta: Optional[timedelta] = None) -> str:
-        """
-        Create JWT access token.
-        
-        Args:
-            data: Token payload data
-            expires_delta: Optional custom expiration time
-            
-        Returns:
-            str: JWT access token
-            
-        Raises:
-            ValueError: If token creation fails
-        """
-        try:
-            to_encode = data.copy()
-            
-            if expires_delta:
-                expire = datetime.utcnow() + expires_delta
-            else:
-                expire = datetime.utcnow() + timedelta(minutes=settings.access_token_expire_minutes)
-            
-            to_encode.update({"exp": expire, "type": "access"})
-            
-            encoded_jwt = jwt.encode(
-                to_encode,
-                settings.secret_key,
-                algorithm=settings.algorithm
-            )
-            
-            logger.debug(f"Created access token for user: {data.get('sub', 'unknown')}")
-            return encoded_jwt
-            
-        except Exception as e:
-            logger.error(f"Access token creation error: {str(e)}")
-            raise ValueError(f"Failed to create access token: {str(e)}")
-    
-    @staticmethod
-    def create_refresh_token(data: Dict[str, Any]) -> str:
-        """
-        Create JWT refresh token.
-        
-        Args:
-            data: Token payload data
-            
-        Returns:
-            str: JWT refresh token
-            
-        Raises:
-            ValueError: If token creation fails
-        """
-        try:
-            to_encode = data.copy()
-            expire = datetime.utcnow() + timedelta(days=settings.refresh_token_expire_days)
-            
-            to_encode.update({"exp": expire, "type": "refresh"})
-            
-            encoded_jwt = jwt.encode(
-                to_encode,
-                settings.secret_key,
-                algorithm=settings.algorithm
-            )
-            
-            logger.debug(f"Created refresh token for user: {data.get('sub', 'unknown')}")
-            return encoded_jwt
-            
-        except Exception as e:
-            logger.error(f"Refresh token creation error: {str(e)}")
-            raise ValueError(f"Failed to create refresh token: {str(e)}")
-    
-    @staticmethod
-    def verify_token(token: str, token_type: str = "access") -> Dict[str, Any]:
-        """
-        Verify and decode JWT token.
-        
-        Args:
-            token: JWT token string
-            token_type: Expected token type ("access" or "refresh")
-            
-        Returns:
-            Dict[str, Any]: Decoded token payload
-            
-        Raises:
-            HTTPException: If token is invalid or expired
-        """
-        try:
-            payload = jwt.decode(
-                token,
-                settings.secret_key,
-                algorithms=[settings.algorithm]
-            )
-            
-            # Verify token type
-            if payload.get("type") != token_type:
-                logger.warning(f"Invalid token type: expected {token_type}, got {payload.get('type')}")
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail=f"Invalid {token_type} token"
-                )
-            
-            # Check expiration
-            exp = payload.get("exp")
-            if exp is None:
-                logger.warning("Token missing expiration claim")
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Token missing expiration"
-                )
-            
-            if datetime.utcnow() > datetime.fromtimestamp(exp):
-                logger.warning("Token has expired")
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Token has expired"
-                )
-            
-            return payload
-            
-        except JWTError as e:
-            logger.warning(f"JWT verification error: {str(e)}")
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid token"
-            )
-        except Exception as e:
-            logger.error(f"Token verification error: {str(e)}")
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Token verification failed"
-            )
+# ─── Password Hashing (bcrypt) ────────────────────────────────────
+# bcrypt with 12 rounds — strong enough, not too slow
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto", bcrypt__rounds=12)
 
 
-# Global security manager instance
-security_manager = SecurityManager()
+def hash_password(password: str) -> str:
+    """Hash password with bcrypt (12 rounds). Returns hash string."""
+    return pwd_context.hash(password)
 
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    """Verify password against bcrypt hash. Constant-time comparison."""
+    try:
+        return pwd_context.verify(plain_password, hashed_password)
+    except Exception:
+        return False
+
+
+# ─── JWT Token Management ─────────────────────────────────────────
+security_scheme = HTTPBearer(auto_error=False)
+
+
+def create_access_token(data: dict[str, Any]) -> str:
+    """Create short-lived JWT access token (60 min default)."""
+    payload = data.copy()
+    expire = datetime.now(timezone.utc) + timedelta(
+        minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
+    )
+    payload.update({
+        "exp": expire,
+        "iat": datetime.now(timezone.utc),
+        "type": "access",
+    })
+    return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+
+
+def create_refresh_token(data: dict[str, Any]) -> str:
+    """Create long-lived JWT refresh token (30 days default)."""
+    payload = data.copy()
+    expire = datetime.now(timezone.utc) + timedelta(
+        days=settings.REFRESH_TOKEN_EXPIRE_DAYS
+    )
+    payload.update({
+        "exp": expire,
+        "iat": datetime.now(timezone.utc),
+        "type": "refresh",
+    })
+    return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+
+
+def decode_token(token: str) -> dict:
+    """
+    Decode and validate JWT token.
+    Raises HTTPException 401 on any failure — no details leaked to client.
+    """
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Invalid or expired token",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(
+            token,
+            settings.SECRET_KEY,
+            algorithms=[settings.ALGORITHM],
+        )
+        user_id: str = payload.get("sub")
+        token_type: str = payload.get("type")
+
+        if not user_id:
+            raise credentials_exception
+        return payload
+
+    except JWTError as e:
+        logger.debug(f"JWT decode failed: {e}")
+        raise credentials_exception
+
+
+# ─── FastAPI Dependencies ─────────────────────────────────────────
 
 async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
-    database = Depends(get_database)
-) -> Dict[str, Any]:
+    credentials: HTTPAuthorizationCredentials = Depends(security_scheme),
+    db=Depends(get_db),
+) -> dict:
     """
-    Dependency to get current authenticated user.
-    
-    Args:
-        credentials: HTTP authorization credentials
-        database: Database connection
-        
-    Returns:
-        Dict[str, Any]: User document from database
-        
-    Raises:
-        HTTPException: If authentication fails or user not found
+    FastAPI dependency — validates JWT and returns user from DB.
+    Use in any protected route: user = Depends(get_current_user)
     """
-    try:
-        # Verify token
-        token = credentials.credentials
-        payload = security_manager.verify_token(token, "access")
-        
-        # Get user ID from token
-        user_id: str = payload.get("sub")
-        if user_id is None:
-            logger.warning("Token missing user ID")
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid token: missing user ID"
-            )
-        
-        # Fetch user from database
-        try:
-            user_collection = database.users
-            user = await user_collection.find_one({"_id": user_id})
-            
-            if user is None:
-                logger.warning(f"User not found: {user_id}")
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="User not found"
-                )
-            
-            # Remove sensitive data
-            user.pop("password", None)
-            
-            logger.debug(f"Successfully authenticated user: {user_id}")
-            return user
-            
-        except PyMongoError as e:
-            logger.error(f"Database error fetching user {user_id}: {str(e)}")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Database error"
-            )
-            
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Unexpected error in get_current_user: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Authentication error"
-        )
+    from bson import ObjectId
 
-
-async def get_current_active_user(
-    current_user: Dict[str, Any] = Depends(get_current_user)
-) -> Dict[str, Any]:
-    """
-    Dependency to get current active user.
-    
-    Args:
-        current_user: Current authenticated user
-        
-    Returns:
-        Dict[str, Any]: Active user document
-        
-    Raises:
-        HTTPException: If user is not active
-    """
-    if not current_user.get("is_active", True):
-        logger.warning(f"Inactive user attempted access: {current_user.get('_id')}")
+    if not credentials:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Inactive user"
+            detail="Authentication required",
+            headers={"WWW-Authenticate": "Bearer"},
         )
-    
-    return current_user
+
+    token = credentials.credentials
+    payload = decode_token(token)
+
+    # Must be access token, not refresh token
+    if payload.get("type") != "access":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token type",
+        )
+
+    user_id = payload.get("sub")
+
+    # Fetch user from MongoDB
+    try:
+        user = await db.users.find_one({"_id": ObjectId(user_id)})
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token",
+        )
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found",
+        )
+
+    if not user.get("is_active", True):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Account is deactivated",
+        )
+
+    if user.get("is_banned", False):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Account is suspended",
+        )
+
+    return user
 
 
-# Export utility functions
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Verify password against hash."""
-    return security_manager.verify_password(plain_password, hashed_password)
+# ─── Role-based Authorization ──────────────────────────────────────
+
+def require_roles(*roles: str):
+    """
+    Role-based access control dependency.
+    Usage: Depends(require_roles("admin", "agronomist"))
+    """
+    async def role_checker(current_user: dict = Depends(get_current_user)) -> dict:
+        if current_user.get("role") not in roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Access denied. Required role: {' or '.join(roles)}",
+            )
+        return current_user
+    return role_checker
 
 
-def get_password_hash(password: str) -> str:
-    """Hash password."""
-    return security_manager.get_password_hash(password)
-
-
-def create_access_token(data: Dict[str, Any], expires_delta: Optional[timedelta] = None) -> str:
-    """Create access token."""
-    return security_manager.create_access_token(data, expires_delta)
-
-
-def create_refresh_token(data: Dict[str, Any]) -> str:
-    """Create refresh token."""
-    return security_manager.create_refresh_token(data)
-
-
-def verify_token(token: str, token_type: str = "access") -> Dict[str, Any]:
-    """Verify and decode token."""
-    return security_manager.verify_token(token, token_type)
+# Pre-built role dependencies
+require_any_user     = Depends(get_current_user)
+require_farmer       = Depends(require_roles("farmer", "agronomist", "admin"))
+require_agronomist   = Depends(require_roles("agronomist", "admin"))
+require_admin        = Depends(require_roles("admin"))

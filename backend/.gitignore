@@ -362,3 +362,12 @@ datasets/
 config.json
 secrets.json
 credentials.json
+
+# AgroBrain Specific
+logs/*.log
+__pycache__/
+*.pyc
+.env
+venv/
+.venv/
+*.pkl

@@ -1,188 +1,109 @@
 """
-Database configuration module for AgroBrain AI backend.
-
-This module handles async MongoDB connection using motor with connection pooling,
-retry logic, and proper error handling.
+AgroBrain AI — MongoDB Atlas Connection
+Uses motor (async) with connection pooling and retry logic.
 """
-
 import asyncio
-from typing import AsyncGenerator, Optional
-
+from typing import Optional
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
-from pymongo.errors import ConnectionFailure, OperationFailure
-
+from loguru import logger
 from app.core.config import settings
-from app.core.logger import logger
 
 
-class DatabaseManager:
-    """MongoDB connection manager with retry logic and connection pooling."""
-    
-    def __init__(self):
-        """Initialize database manager."""
-        self.client: Optional[AsyncIOMotorClient] = None
-        self.database: Optional[AsyncIOMotorDatabase] = None
-        self._connection_attempts = 0
-        self._max_retries = 3
-        self._retry_delay = 1  # Initial delay in seconds
-    
-    async def connect(self) -> None:
-        """
-        Establish MongoDB connection with retry logic.
-        
-        Raises:
-            ConnectionFailure: If unable to connect after max retries
-        """
-        for attempt in range(self._max_retries):
-            try:
-                self._connection_attempts = attempt + 1
-                
-                # Create client with connection pooling
-                self.client = AsyncIOMotorClient(
-                    settings.mongodb_url,
-                    maxPoolSize=20,
-                    minPoolSize=5,
-                    maxIdleTimeMS=30000,
-                    serverSelectionTimeoutMS=5000,
-                    connectTimeoutMS=10000,
-                    retryWrites=True,
-                    w="majority",
-                    tlsAllowInvalidCertificates=True
-                )
-                
-                # Test connection
-                await self.client.admin.command('ping')
-                
-                # Get database instance
-                self.database = self.client[settings.mongodb_db_name]
-                
-                logger.info(
-                    f"Successfully connected to MongoDB database '{settings.mongodb_db_name}' "
-                    f"(attempt {self._connection_attempts}/{self._max_retries})"
-                )
-                return
-                
-            except ConnectionFailure as e:
-                logger.error(
-                    f"MongoDB connection failed (attempt {self._connection_attempts}/{self._max_retries}): {str(e)}"
-                )
-                
-                if attempt < self._max_retries - 1:
-                    # Exponential backoff
-                    delay = self._retry_delay * (2 ** attempt)
-                    logger.info(f"Retrying MongoDB connection in {delay} seconds...")
-                    await asyncio.sleep(delay)
-                else:
-                    if settings.db_fallback:
-                        logger.warning("FAILED to connect to remote MongoDB. Falling back to MOCK DATABASE (mongomock).")
-                        logger.warning("NOTE: Data will NOT be persistent and will be lost on restart.")
-                        try:
-                            from mongomock_motor import AsyncMongoMockClient
-                            self.client = AsyncMongoMockClient()
-                            self.database = self.client[settings.mongodb_db_name]
-                            logger.info("Successfully initialized Mock MongoDB")
-                            return
-                        except ImportError:
-                            logger.error("mongomock-motor not installed. Fallback failed.")
-                            raise ConnectionFailure(f"Failed to connect to MongoDB and fallback failed.") from e
-                    raise ConnectionFailure(
-                        f"Failed to connect to MongoDB after {self._max_retries} attempts"
-                    ) from e
-            
-            except Exception as e:
-                logger.error(f"Unexpected error connecting to MongoDB: {str(e)}")
-                if settings.db_fallback:
-                    logger.warning(f"Attempting mock fallback due to unexpected error: {e}")
-                    try:
-                        from mongomock_motor import AsyncMongoMockClient
-                        self.client = AsyncMongoMockClient()
-                        self.database = self.client[settings.mongodb_db_name]
-                        return
-                    except Exception:
-                        pass
-                raise
-    
-    async def disconnect(self) -> None:
-        """Close MongoDB connection."""
-        if self.client:
-            try:
-                self.client.close()
-                logger.info("MongoDB connection closed successfully")
-            except Exception as e:
-                logger.error(f"Error closing MongoDB connection: {str(e)}")
-            finally:
-                self.client = None
-                self.database = None
-    
-    async def health_check(self) -> bool:
-        """
-        Check MongoDB connection health.
-        
-        Returns:
-            bool: True if connection is healthy, False otherwise
-        """
-        if not self.client or not self.database:
-            return False
-        
+class Database:
+    client: Optional[AsyncIOMotorClient] = None
+    db: Optional[AsyncIOMotorDatabase] = None
+
+
+db_instance = Database()
+
+
+async def connect_db(retries: int = 3, delay: float = 2.0) -> None:
+    """Connect to MongoDB Atlas with retry logic."""
+    for attempt in range(1, retries + 1):
         try:
-            await self.client.admin.command('ping')
-            return True
+            logger.info(f"Connecting to MongoDB Atlas (attempt {attempt}/{retries})...")
+
+            # Fix for DNS issues on Indian ISPs
+            import dns.resolver
+            dns.resolver.default_resolver = dns.resolver.Resolver(configure=False)
+            dns.resolver.default_resolver.nameservers = ["8.8.8.8", "8.8.4.4"]
+
+            db_instance.client = AsyncIOMotorClient(
+                settings.MONGODB_URL,
+                serverSelectionTimeoutMS=10000,
+                connectTimeoutMS=10000,
+                socketTimeoutMS=10000,
+                maxPoolSize=20,
+                minPoolSize=5,
+            )
+
+            # Test connection
+            await db_instance.client.admin.command("ping")
+            db_instance.db = db_instance.client[settings.MONGODB_DB_NAME]
+
+            # Create indexes
+            await create_indexes()
+
+            logger.success(f"✅ MongoDB Atlas connected → {settings.MONGODB_DB_NAME}")
+            return
+
         except Exception as e:
-            logger.error(f"MongoDB health check failed: {str(e)}")
-            return False
-    
-    def get_database(self) -> AsyncIOMotorDatabase:
-        """
-        Get database instance.
-        
-        Returns:
-            AsyncIOMotorDatabase: Database instance
-            
-        Raises:
-            RuntimeError: If database is not connected
-        """
-        if not self.database:
-            raise RuntimeError("Database not connected. Call connect() first.")
-        return self.database
-
-
-# Global database manager instance
-db_manager = DatabaseManager()
-
-
-async def connect_db() -> None:
-    """Connect to MongoDB database."""
-    await db_manager.connect()
+            logger.error(f"❌ MongoDB connection failed (attempt {attempt}): {e}")
+            if attempt < retries:
+                await asyncio.sleep(delay * attempt)
+            else:
+                raise RuntimeError(f"Cannot connect to MongoDB after {retries} attempts: {e}")
 
 
 async def disconnect_db() -> None:
-    """Disconnect from MongoDB database."""
-    await db_manager.disconnect()
+    """Close MongoDB connection."""
+    if db_instance.client:
+        db_instance.client.close()
+        logger.info("MongoDB connection closed.")
 
 
-async def get_database() -> AsyncGenerator[AsyncIOMotorDatabase, None]:
-    """
-    Dependency injection function to get database instance.
-    
-    Yields:
-        AsyncIOMotorDatabase: Database instance
-        
-    Raises:
-        HTTPException: If database is not available
-    """
+async def create_indexes() -> None:
+    """Create all required MongoDB indexes."""
+    db = db_instance.db
     try:
-        database = db_manager.get_database()
-        yield database
-    except RuntimeError as e:
-        logger.error(f"Database dependency injection failed: {str(e)}")
-        raise
+        # users collection
+        await db.users.create_index("email", unique=True)
+        await db.users.create_index("username", unique=True)
+        await db.users.create_index(
+            "phone", unique=True, sparse=True
+        )
+        await db.users.create_index("created_at")
+        await db.users.create_index("role")
+
+        # weather_logs - TTL: auto-delete after 7 days
+        await db.weather_logs.create_index(
+            "created_at", expireAfterSeconds=604800
+        )
+        await db.weather_logs.create_index([("user_id", 1), ("created_at", -1)])
+
+        # crop_recommendations
+        await db.crop_recommendations.create_index(
+            [("user_id", 1), ("created_at", -1)]
+        )
+
+        # chat_history - TTL: auto-delete after 90 days
+        await db.chat_history.create_index(
+            "created_at", expireAfterSeconds=7776000
+        )
+        await db.chat_history.create_index("session_id", unique=True)
+        await db.chat_history.create_index([("user_id", 1), ("created_at", -1)])
+
+        # locations
+        await db.locations.create_index([("coordinates", "2dsphere")])
+        await db.locations.create_index("user_id")
+
+        logger.info("✅ MongoDB indexes created")
+    except Exception as e:
+        logger.warning(f"Index creation warning (may already exist): {e}")
 
 
-async def get_db_health() -> bool:
-    """
-    Get database health status.
-    
-    Returns:
-        bool: True if database is healthy, False otherwise
-    """
-    return await db_manager.health_check()
+def get_db() -> AsyncIOMotorDatabase:
+    """Dependency injection for FastAPI routes."""
+    if db_instance.db is None:
+        raise RuntimeError("Database not connected. Call connect_db() first.")
+    return db_instance.db

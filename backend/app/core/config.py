@@ -1,111 +1,94 @@
 """
-Configuration module for AgroBrain AI backend.
-
-This module handles all application configuration using Pydantic settings
-with environment variable loading and validation.
+AgroBrain AI — Application Configuration
+All settings loaded from environment variables via pydantic-settings.
 """
-
+from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import field_validator
 from functools import lru_cache
-from typing import List, Optional
-
-from pydantic import Field, field_validator, model_validator, ConfigDict
-from pydantic_settings import BaseSettings
+from typing import Optional
 
 
 class Settings(BaseSettings):
-    """Application settings with environment variable support."""
-    
-    # App Configuration
-    app_name: str = Field(default="AgroBrain AI", description="Application name")
-    app_version: str = Field(default="1.0.0", description="Application version")
-    debug: bool = Field(default=False, description="Enable debug mode")
-    db_fallback: bool = Field(default=True, description="Enable fallback to mock DB if connection fails")
-    secret_key: str = Field(default="dev-secret-key-change-in-prod", description="JWT secret key")
-    algorithm: str = Field(default="HS256", description="JWT algorithm")
-    access_token_expire_minutes: int = Field(default=60, description="Access token expiration in minutes")
-    refresh_token_expire_days: int = Field(default=30, description="Refresh token expiration in days")
-    
-    # Database Configuration
-    mongodb_url: str = Field(..., alias="MONGODB_URL", description="MongoDB connection URL")
-    mongodb_db_name: str = Field(default="agrobrain", alias="MONGODB_DB_NAME", description="MongoDB database name")
-    
-    # Redis Configuration
-    redis_url: str = Field(default="redis://localhost:6379", alias="REDIS_URL", description="Redis connection URL")
-    redis_password: Optional[str] = Field(default=None, alias="REDIS_PASSWORD", description="Redis password")
-    
-    # OpenAI Configuration
-    openai_api_key: str = Field(..., alias="OPENAI_API_KEY", description="OpenAI API key")
-    openai_model: str = Field(default="gpt-4o", description="OpenAI model to use")
-    
-    # OpenWeatherMap Configuration
-    openweather_api_key: str = Field(..., alias="OPENWEATHER_API_KEY", description="OpenWeatherMap API key")
-    openweather_base_url: str = Field(
-        default="https://api.openweathermap.org/data/2.5",
-        description="OpenWeatherMap API base URL"
-    )
-    
-    # Firebase Configuration
-    firebase_project_id: str = Field(default="", alias="FIREBASE_PROJECT_ID", description="Firebase project ID")
-    firebase_credentials_path: str = Field(default="", alias="FIREBASE_CREDENTIALS_PATH", description="Path to Firebase credentials file")
-    firebase_api_key: Optional[str] = Field(None, description="Firebase API Key")
-    firebase_auth_domain: Optional[str] = Field(None, description="Firebase Auth Domain")
-    
-    # CORS Configuration
-    allowed_origins: str = Field(
-        default="http://localhost:3000,http://localhost:8080",
-        alias="ALLOWED_ORIGINS",
-        description="Comma-separated list of allowed origins"
-    )
-    
-    model_config = ConfigDict(
+    model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",
-        populate_by_name=True
     )
 
-    @property
-    def cors_origins(self) -> List[str]:
-        """Convert comma-separated allowed_origins into a list."""
-        return [origin.strip() for origin in self.allowed_origins.split(",")]
+    # App
+    APP_NAME: str = "AgroBrain AI"
+    APP_VERSION: str = "1.0.0"
+    DEBUG: bool = False
+    ENVIRONMENT: str = "development"
 
-    @model_validator(mode='after')
-    def validate_required_keys(self) -> 'Settings':
-        """Ensure critical API keys are present."""
-        if not self.openai_api_key:
-            raise ValueError("OPENAI_API_KEY is required")
-        if not self.mongodb_url:
-            raise ValueError("MONGODB_URL is required")
-        return self
-    
+    # Security
+    SECRET_KEY: str
+    ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 30
+
+    # MongoDB
+    MONGODB_URL: str
+    MONGODB_DB_NAME: str = "agrobrain"
+
+    # Redis
+    REDIS_URL: str
+    REDIS_PASSWORD: Optional[str] = None
+
+    # CORS
+    ALLOWED_ORIGINS: str = "http://localhost:3000"
+
+    # Rate Limiting
+    RATE_LIMIT_PER_MINUTE: int = 60
+
+    # OpenAI
+    OPENAI_API_KEY: Optional[str] = None
+    OPENAI_MODEL: str = "gpt-4o"
+
+    # Weather
+    OPENWEATHER_API_KEY: Optional[str] = None
+    OPENWEATHER_BASE_URL: str = "https://api.openweathermap.org/data/2.5"
+
+    @field_validator("SECRET_KEY")
+    @classmethod
+    def secret_key_must_be_long(cls, v: str) -> str:
+        if len(v) < 32:
+            raise ValueError("SECRET_KEY must be at least 32 characters")
+        return v
+
+    @property
+    def allowed_origins_list(self) -> list[str]:
+        return [o.strip() for o in self.ALLOWED_ORIGINS.split(",")]
+
     @property
     def is_production(self) -> bool:
-        """Check if running in production mode."""
-        return not self.debug
-    
+        return self.ENVIRONMENT == "production"
+
     @property
-    def is_development(self) -> bool:
-        """Check if running in development mode."""
-        return self.debug
-    
+    def access_token_expire_seconds(self) -> int:
+        return self.ACCESS_TOKEN_EXPIRE_MINUTES * 60
+
+    # ─── Compatibility Aliases (for existing code) ───
     @property
-    def jwt_secret_key(self) -> str:
-        """Get JWT secret key."""
-        return self.secret_key
+    def debug(self) -> bool: return self.DEBUG
+    @property
+    def openai_api_key(self) -> Optional[str]: return self.OPENAI_API_KEY
+    @property
+    def openai_model(self) -> str: return self.OPENAI_MODEL
+    @property
+    def openweather_api_key(self) -> Optional[str]: return self.OPENWEATHER_API_KEY
+    @property
+    def openweather_base_url(self) -> str: return self.OPENWEATHER_BASE_URL
+    @property
+    def mongodb_db_name(self) -> str: return self.MONGODB_DB_NAME
+    @property
+    def jwt_secret_key(self) -> str: return self.SECRET_KEY
 
 
 @lru_cache()
 def get_settings() -> Settings:
-    """
-    Get cached settings instance.
-    
-    Returns:
-        Settings: Application settings instance
-    """
     return Settings()
 
 
-# Global settings instance
 settings = get_settings()
-

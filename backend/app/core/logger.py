@@ -44,7 +44,8 @@ class LoggerConfig:
             compression="zip",
             enqueue=True,
             backtrace=True,
-            diagnose=True
+            diagnose=True,
+            encoding="utf-8"
         )
         
         # Add error file logger
@@ -57,7 +58,8 @@ class LoggerConfig:
             compression="zip",
             enqueue=True,
             backtrace=True,
-            diagnose=True
+            diagnose=True,
+            encoding="utf-8"
         )
     
     def get_logger(self, name: Optional[str] = None) -> Any:

@@ -1,194 +1,153 @@
 """
-Pydantic schemas for user authentication and profile management.
-
-This module defines request/response schemas for authentication endpoints
-with proper validation and error handling for Indian farmer use case.
+AgroBrain AI — User Pydantic Schemas (v2)
+Input validation + output serialization.
 """
-
 from datetime import datetime
-from typing import Dict, Any, Optional, List
-from datetime import datetime
-from typing import Dict, Any, Optional, List
-from pydantic import BaseModel, Field, field_validator, ConfigDict
+from typing import Optional, Literal
+from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
+from bson import ObjectId
 import re
 
 
-class PhoneOTPRequest(BaseModel):
-    """Request schema for sending OTP to phone number."""
-    
-    phone: str = Field(
-        ...,
-        description="Phone number in E.164 format (+91XXXXXXXXXX)",
-        min_length=13,
-        max_length=13
-    )
-    
-    @field_validator('phone')
+# ─── Validators ──────────────────────────────────────────────────
+
+def validate_password_strength(v: str) -> str:
+    if len(v) < 8:
+        raise ValueError("Password must be at least 8 characters")
+    if len(v) > 64:
+        raise ValueError("Password must not exceed 64 characters")
+    if not any(c.isupper() for c in v):
+        raise ValueError("Password must contain at least one uppercase letter")
+    if not any(c.islower() for c in v):
+        raise ValueError("Password must contain at least one lowercase letter")
+    if not any(c.isdigit() for c in v):
+        raise ValueError("Password must contain at least one number")
+    return v
+
+
+# ─── Request Schemas ──────────────────────────────────────────────
+
+class RegisterRequest(BaseModel):
+    username: str = Field(..., min_length=3, max_length=20)
+    email: EmailStr
+    password: str = Field(..., min_length=8, max_length=64)
+    name: str = Field(..., min_length=2, max_length=50)
+    phone: Optional[str] = None
+    language: Literal["hi", "en"] = "hi"
+    role: Literal["farmer", "agronomist", "admin"] = "farmer"
+
+    @field_validator("username")
     @classmethod
-    def validate_phone_format(cls, v):
-        """Validate phone number is in E.164 format for India."""
-        # E.164 format for India: +91 followed by 10 digits
-        pattern = r'^\+91[6-9]\d{9}$'
-        if not re.match(pattern, v):
-            raise ValueError(
-                "Phone number must be in E.164 format for India: +91XXXXXXXXXX"
-            )
+    def username_valid(cls, v: str) -> str:
+        v = v.lower().strip()
+        if not re.match(r'^[a-z0-9_]+$', v):
+            raise ValueError("Username can only contain lowercase letters, numbers, and underscores")
+        return v
+
+    @field_validator("password")
+    @classmethod
+    def password_strong(cls, v: str) -> str:
+        return validate_password_strength(v)
+
+    @field_validator("phone")
+    @classmethod
+    def phone_valid(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        # Remove spaces/dashes
+        v = re.sub(r'[\s\-\(\)]', '', v)
+        if not re.match(r'^\+?[1-9]\d{9,14}$', v):
+            raise ValueError("Invalid phone number format")
         return v
 
 
-class VerifyOTPRequest(BaseModel):
-    """Request schema for verifying OTP with Firebase ID token."""
-    
-    phone: str = Field(
-        ...,
-        description="Phone number in E.164 format (+91XXXXXXXXXX)",
-        min_length=13,
-        max_length=13
-    )
-    otp_token: str = Field(
-        ...,
-        description="Firebase ID token from client-side authentication"
-    )
-    
-    @field_validator('phone')
+class LoginRequest(BaseModel):
+    email: EmailStr
+    password: str = Field(..., min_length=1)
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str = Field(..., min_length=8, max_length=64)
+
+    @field_validator("new_password")
     @classmethod
-    def validate_phone_format(cls, v):
-        """Validate phone number is in E.164 format for India."""
-        pattern = r'^\+91[6-9]\d{9}$'
-        if not re.match(pattern, v):
-            raise ValueError(
-                "Phone number must be in E.164 format for India: +91XXXXXXXXXX"
-            )
-        return v
+    def password_strong(cls, v: str) -> str:
+        return validate_password_strength(v)
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str = Field(..., min_length=8, max_length=64)
+
+    @field_validator("new_password")
+    @classmethod
+    def password_strong(cls, v: str) -> str:
+        return validate_password_strength(v)
+
+
+class UpdateProfileRequest(BaseModel):
+    name: Optional[str] = Field(None, min_length=2, max_length=50)
+    username: Optional[str] = Field(None, min_length=3, max_length=20)
+    bio: Optional[str] = Field(None, max_length=200)
+    language: Optional[Literal["hi", "en"]] = None
 
 
 class RefreshTokenRequest(BaseModel):
-    """Request schema for refreshing access token."""
-    
-    refresh_token: str = Field(
-        ...,
-        description="JWT refresh token"
-    )
+    refresh_token: str
 
 
-class LocationUpdate(BaseModel):
-    """Schema for updating user location."""
-    
-    lat: Optional[float] = Field(None, ge=-90, le=90, description="Latitude")
-    lng: Optional[float] = Field(None, ge=-180, le=180, description="Longitude")
-    village: Optional[str] = Field(None, max_length=100, description="Village name")
-    district: Optional[str] = Field(None, max_length=100, description="District name")
-    state: Optional[str] = Field(None, max_length=100, description="State name")
-    pincode: Optional[str] = Field(None, pattern=r'^\d{6}$', description="6-digit PIN code")
-
-
-class FarmProfileUpdate(BaseModel):
-    """Schema for updating farm profile."""
-    
-    total_area_acres: Optional[float] = Field(None, gt=0, description="Total farm area in acres")
-    soil_type: Optional[str] = Field(None, max_length=50, description="Soil type")
-    primary_crops: Optional[List[str]] = Field(None, max_items=10, description="Primary crops grown")
-    irrigation_type: Optional[str] = Field(None, max_length=50, description="Irrigation type")
-    has_soil_sensor: Optional[bool] = Field(None, description="Whether user has soil sensor")
-
-
-class UserProfileUpdate(BaseModel):
-    """Schema for updating user profile."""
-    
-    name: Optional[str] = Field(None, min_length=2, max_length=100, description="User name")
-    language: Optional[str] = Field(None, pattern=r'^(hi|en)$', description="Language preference")
-    farm_profile: Optional[FarmProfileUpdate] = Field(None, description="Farm profile updates")
-    
-    @field_validator('language')
-    @classmethod
-    def validate_language(cls, v):
-        """Validate language is either Hindi or English."""
-        if v not in ["hi", "en"]:
-            raise ValueError("Language must be either 'hi' (Hindi) or 'en' (English)")
-        return v
-
+# ─── Response Schemas ─────────────────────────────────────────────
 
 class UserResponse(BaseModel):
-    """Response schema for user profile (safe, no sensitive data)."""
-    
-    model_config = ConfigDict(
-        from_attributes=True,
-        populate_by_name=True,
-        arbitrary_types_allowed=True
-    )
-    
-    id: str = Field(..., alias="_id", description="User ID")
-    phone: str = Field(..., description="Phone number (masked)")
-    name: Optional[str] = Field(None, description="User name")
-    language: str = Field(..., description="Language preference")
-    avatar_url: Optional[str] = Field(None, description="Avatar URL")
-    default_location: Dict[str, Any] = Field(default_factory=dict, description="Default location")
-    farm_profile: Dict[str, Any] = Field(default_factory=dict, description="Farm profile")
-    is_verified: bool = Field(..., description="Whether user is verified")
-    is_active: bool = Field(..., description="Whether user is active")
-    role: str = Field(..., description="User role")
-    created_at: datetime = Field(..., description="Account creation time")
-    last_login: Optional[datetime] = Field(None, description="Last login time")
-    
-    @field_validator('phone', mode='before')
+    id: str
+    username: str
+    email: str
+    name: str
+    role: str
+    is_verified: bool
+    is_active: bool
+    language: str
+    avatar_url: Optional[str] = None
+    bio: Optional[str] = None
+    created_at: datetime
+
     @classmethod
-    def mask_phone(cls, v):
-        """Mask phone number for privacy."""
-        if isinstance(v, str) and len(v) == 13 and v.startswith('+91'):
-            return f"+91XXXXXX{v[-4:]}"
-        return v
-    
-    @field_validator('id', mode='before')
-    @classmethod
-    def transform_id(cls, v):
-        """Transform ObjectId to string if needed."""
-        if v and not isinstance(v, str):
-            return str(v)
-        return v
+    def from_mongo(cls, user: dict) -> "UserResponse":
+        """Convert MongoDB document to response schema."""
+        return cls(
+            id=str(user["_id"]),
+            username=user.get("username", ""),
+            email=user.get("email", ""),
+            name=user.get("name", ""),
+            role=user.get("role", "farmer"),
+            is_verified=user.get("is_verified", False),
+            is_active=user.get("is_active", True),
+            language=user.get("language", "hi"),
+            avatar_url=user.get("avatar_url"),
+            bio=user.get("bio"),
+            created_at=user.get("created_at", datetime.utcnow()),
+        )
 
 
 class TokenResponse(BaseModel):
-    """Response schema for authentication tokens."""
-    
-    access_token: str = Field(..., description="JWT access token")
-    refresh_token: str = Field(..., description="JWT refresh token")
-    token_type: str = Field(default="Bearer", description="Token type")
-    expires_in: int = Field(..., description="Access token expiration in seconds")
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+    expires_in: int
+    user: UserResponse
 
 
-class AuthResponse(BaseModel):
-    """Combined response for authentication endpoints."""
-    
-    success: bool = Field(default=True, description="Request success status")
-    data: Dict[str, Any] = Field(..., description="Response data")
-    message: Optional[str] = Field(None, description="Success message")
-    message_hi: Optional[str] = Field(None, description="Success message in Hindi")
+class MessageResponse(BaseModel):
+    success: bool
+    message: str
+    message_hi: Optional[str] = None
 
 
-class ErrorResponse(BaseModel):
-    """Standard error response schema."""
-    
-    success: bool = Field(default=False, description="Request success status")
-    error: str = Field(..., description="Error type")
-    message: str = Field(..., description="Error message in English")
-    message_hi: str = Field(..., description="Error message in Hindi")
-    retry_after: Optional[int] = Field(None, description="Retry after seconds (for rate limits)")
-
-
-class NewUserResponse(BaseModel):
-    """Response for first-time user login."""
-    
-    is_new_user: bool = Field(..., description="Whether this is a new user")
-    user: UserResponse = Field(..., description="User profile")
-    tokens: TokenResponse = Field(..., description="Authentication tokens")
-    onboarding_required: bool = Field(default=True, description="Whether onboarding is required")
-
-
-class HealthResponse(BaseModel):
-    """Health check response schema."""
-    
-    status: str = Field(..., description="Health status")
-    version: str = Field(..., description="App version")
-    environment: str = Field(..., description="Environment")
-    services: Dict[str, str] = Field(..., description="Service health status")
-    timestamp: float = Field(..., description="Response timestamp")
+class CheckAvailabilityResponse(BaseModel):
+    available: bool
+    message: str

@@ -1,417 +1,181 @@
 """
-Authentication routes for AgroBrain AI backend.
-
-This module defines all authentication endpoints including OTP verification,
-user registration, token management, and profile updates.
+AgroBrain AI — Auth Routes
+All authentication endpoints with proper error handling.
 """
+from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import JSONResponse
+from loguru import logger
 
-from datetime import datetime
-from typing import Dict, Any
-
-from fastapi import APIRouter, Depends, HTTPException, status, Request
-from slowapi import Limiter
-from slowapi.util import get_remote_address
-
-from app.core.config import settings
-from app.core.logger import logger
-from app.core.redis import get_redis_client
-from app.core.database import get_database
-from app.services.auth_service import auth_service, get_current_user
+from app.core.database import get_db
+from app.core.security import get_current_user
+from app.services.auth_service import AuthService
 from app.schemas.user import (
-    PhoneOTPRequest, 
-    VerifyOTPRequest, 
-    RefreshTokenRequest,
-    UserProfileUpdate, 
-    LocationUpdate,
-    UserResponse, 
-    TokenResponse,
-    AuthResponse,
-    ErrorResponse,
-    NewUserResponse
+    RegisterRequest, LoginRequest, RefreshTokenRequest,
+    ChangePasswordRequest, UpdateProfileRequest,
+    TokenResponse, UserResponse, MessageResponse,
+    CheckAvailabilityResponse,
 )
 
-# Create router
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
-# Rate limiter
-limiter = Limiter(key_func=get_remote_address)
+
+def success(data: dict = None, message: str = "Success") -> dict:
+    """Standard success response wrapper."""
+    return {"success": True, "message": message, "data": data or {}}
 
 
-@router.post("/send-otp", response_model=AuthResponse)
-@limiter.limit("3/10minute")  # 3 requests per phone per 10 minutes
-async def send_otp(request: Request, otp_request: PhoneOTPRequest):
-    """
-    Send OTP to phone number via Firebase Authentication.
-    
-    This endpoint validates the phone format and instructs the client
-    to use Firebase for OTP generation. Rate limited to prevent abuse.
-    """
+def error_response(status_code: int, detail: str) -> HTTPException:
+    """Standard error response."""
+    return HTTPException(status_code=status_code, detail=detail)
+
+
+# ─────────────────────────────────────────────────────────────────
+# POST /auth/register
+# ─────────────────────────────────────────────────────────────────
+@router.post("/register", status_code=201)
+async def register(request: RegisterRequest, db=Depends(get_db)):
+    """Register new farmer or agronomist account."""
     try:
-        phone = otp_request.phone
-        
-        # Additional rate limiting per phone number
-        redis_client = get_redis_client()
-        rate_limit_key = f"otp_rate:{phone}"
-        current_count = await redis_client.get(rate_limit_key)
-        
-        if current_count and int(current_count) >= 3:
-            retry_after = await redis_client.ttl(rate_limit_key)
-            raise HTTPException(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail={
-                    "error": "Too many OTP requests",
-                    "message": "Please wait before requesting another OTP",
-                    "message_hi": "Please wait before requesting another OTP",
-                    "retry_after": retry_after
-                }
-            )
-        
-        # Increment rate limit counter
-        await redis_client.incr(rate_limit_key)
-        if current_count is None:
-            await redis_client.expire(rate_limit_key, 600)  # 10 minutes
-        
-        # Log OTP request (masked phone)
-        masked_phone = f"+91XXXXXX{phone[-4:]}" if len(phone) > 4 else phone
-        logger.info(f"OTP requested for phone: {masked_phone}")
-        
-        return AuthResponse(
-            data={
-                "message": "OTP sent via Firebase Authentication",
-                "message_hi": "OTP Firebase Authentication ke through bheja gaya hai",
-                "phone": phone,
-                "instruction": "Use Firebase Auth SDK on client to generate OTP"
-            }
-        )
-        
-    except HTTPException:
-        raise
-        
+        result = await AuthService.register(request, db)
+        return success(result, "Account created successfully!")
+    except ValueError as e:
+        error_map = {
+            "EMAIL_EXISTS"   : (409, "This email is already registered. Please login."),
+            "USERNAME_EXISTS": (409, "This username is already taken. Try another."),
+            "PHONE_EXISTS"   : (409, "This phone number is already registered."),
+        }
+        code, msg = error_map.get(str(e), (400, str(e)))
+        raise error_response(code, msg)
     except Exception as e:
-        logger.error(f"OTP send failed: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={
-                "error": "OTP send failed",
-                "message": "Failed to process OTP request",
-                "message_hi": "OTP request process karne mein asafalta"
-            }
-        )
+        logger.error(f"Registration error: {e}")
+        raise error_response(500, "Registration failed. Please try again.")
 
 
-@router.post("/verify-otp", response_model=NewUserResponse)
-@limiter.limit("10/minute")
-async def verify_otp(request: Request, verify_request: VerifyOTPRequest):
-    """
-    Verify OTP using Firebase ID token and authenticate user.
-    
-    This endpoint verifies the Firebase ID token, creates/retrieves user,
-    and generates JWT tokens for API access.
-    """
+# ─────────────────────────────────────────────────────────────────
+# POST /auth/login
+# ─────────────────────────────────────────────────────────────────
+@router.post("/login", response_model=TokenResponse)
+async def login(request: LoginRequest, db=Depends(get_db)):
+    """Login with email and password. Returns JWT tokens."""
     try:
-        phone = verify_request.phone
-        otp_token = verify_request.otp_token
-        
-        # Verify Firebase token (support dev mode fallback)
-        firebase_data = await auth_service.verify_firebase_token(otp_token, phone=phone)
-        
-        # Ensure phone matches Firebase token
-        if firebase_data["phone"] != phone:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail={
-                    "error": "Phone mismatch",
-                    "message": "Phone number does not match Firebase token",
-                    "message_hi": "Phone number Firebase token se match nahi kar raha"
-                }
-            )
-        
-        # Get or create user
-        user_data = await auth_service.get_or_create_user(phone)
-        
-        # Create tokens
-        tokens = await auth_service.create_tokens(
-            user_id=str(user_data["_id"]),
-            phone=user_data["phone"],
-            role=user_data["role"]
-        )
-        
-        # Check if new user (created within last 5 minutes)
-        is_new_user = (
-            datetime.utcnow() - user_data["created_at"]
-        ).total_seconds() < 300
-        
-        # Convert to response format
-        user_response = UserResponse.model_validate(user_data)
-        
-        logger.info(f"User authenticated: {phone}")
-        
-        return NewUserResponse(
-            is_new_user=is_new_user,
-            user=user_response,
-            tokens=tokens,
-            onboarding_required=is_new_user
-        )
-        
-    except HTTPException:
-        raise
-        
+        token_response = await AuthService.login(request, db)
+        return token_response
+    except ValueError as e:
+        raise error_response(401, str(e))
     except Exception as e:
-        logger.error(f"OTP verification failed: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={
-                "error": "Verification failed",
-                "message": "Failed to verify OTP",
-                "message_hi": "OTP verify karne mein asafalta"
-            }
-        )
+        logger.error(f"Login error: {e}")
+        raise error_response(500, "Login failed. Please try again.")
 
 
+# ─────────────────────────────────────────────────────────────────
+# POST /auth/refresh
+# ─────────────────────────────────────────────────────────────────
 @router.post("/refresh", response_model=TokenResponse)
-@limiter.limit("5/minute")
-async def refresh_token(request: Request, refresh_request: RefreshTokenRequest):
-    """
-    Refresh access token using valid refresh token.
-    
-    This endpoint validates the refresh token and issues a new access token.
-    """
-    try:
-        tokens = await auth_service.refresh_access_token(refresh_request.refresh_token)
-        
-        logger.info("Access token refreshed")
-        
-        return tokens
-        
-    except HTTPException:
-        raise
-        
-    except Exception as e:
-        logger.error(f"Token refresh failed: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={
-                "error": "Token refresh failed",
-                "message": "Failed to refresh access token",
-                "message_hi": "Access token refresh karne mein asafalta"
-            }
-        )
+async def refresh_token(request: RefreshTokenRequest, db=Depends(get_db)):
+    """Refresh access token using valid refresh token."""
+    return await AuthService.refresh_access_token(request.refresh_token, db)
 
 
-@router.post("/logout", response_model=AuthResponse)
-@limiter.limit("10/minute")
-async def logout(request: Request, current_user: Dict[str, Any] = Depends(get_current_user)):
-    """
-    Logout user by invalidating refresh token.
-    
-    This endpoint removes the refresh token from Redis, effectively
-    logging out the user from all sessions.
-    """
-    try:
-        user_id = str(current_user["_id"])
-        
-        # Logout user
-        success = await auth_service.logout(user_id)
-        
-        if success:
-            logger.info(f"User logged out: {user_id}")
-            return AuthResponse(
-                data={
-                    "message": "Logged out successfully",
-                    "message_hi": "Safalta se logout kar diya gaya hai"
-                }
-            )
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail={
-                    "error": "Logout failed",
-                    "message": "Failed to logout user",
-                    "message_hi": "User logout karne mein asafalta"
-                }
-            )
-            
-    except HTTPException:
-        raise
-        
-    except Exception as e:
-        logger.error(f"Logout failed: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={
-                "error": "Logout failed",
-                "message": "Failed to logout user",
-                "message_hi": "User logout karne mein asafalta"
-            }
-        )
+# ─────────────────────────────────────────────────────────────────
+# POST /auth/logout
+# ─────────────────────────────────────────────────────────────────
+@router.post("/logout")
+async def logout(current_user: dict = Depends(get_current_user)):
+    """Logout — invalidates refresh token."""
+    await AuthService.logout(str(current_user["_id"]))
+    return success(message="Logged out successfully")
 
 
+# ─────────────────────────────────────────────────────────────────
+# GET /auth/me
+# ─────────────────────────────────────────────────────────────────
 @router.get("/me", response_model=UserResponse)
-@limiter.limit("30/minute")
-async def get_current_user_profile(
-    request: Request, 
-    current_user: Dict[str, Any] = Depends(get_current_user)
-):
-    """
-    Get current user profile.
-    
-    This endpoint returns the complete user profile for the authenticated user.
-    """
-    try:
-        user_response = UserResponse.model_validate(current_user)
-        
-        logger.info(f"Profile retrieved for user: {current_user['_id']}")
-        
-        return user_response
-        
-    except Exception as e:
-        logger.error(f"Profile retrieval failed: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={
-                "error": "Profile retrieval failed",
-                "message": "Failed to get user profile",
-                "message_hi": "User profile prapt karne mein asafalta"
-            }
-        )
+async def get_me(current_user: dict = Depends(get_current_user)):
+    """Get current authenticated user profile."""
+    return UserResponse.from_mongo(current_user)
 
 
-@router.patch("/profile", response_model=UserResponse)
-@limiter.limit("10/minute")
+# ─────────────────────────────────────────────────────────────────
+# PATCH /auth/profile
+# ─────────────────────────────────────────────────────────────────
+@router.patch("/profile")
 async def update_profile(
-    request: Request,
-    profile_update: UserProfileUpdate,
-    current_user: Dict[str, Any] = Depends(get_current_user)
+    request: UpdateProfileRequest,
+    current_user: dict = Depends(get_current_user),
+    db=Depends(get_db),
 ):
-    """
-    Update user profile information.
-    
-    This endpoint allows users to update their name, language preference,
-    and farm profile information.
-    """
-    try:
-        db = get_database()
-        users_collection = db.users
-        user_id = current_user["_id"]
-        
-        # Prepare update data
-        update_data = {"updated_at": datetime.utcnow()}
-        
-        if profile_update.name is not None:
-            update_data["name"] = profile_update.name
-        
-        if profile_update.language is not None:
-            update_data["language"] = profile_update.language
-        
-        if profile_update.farm_profile is not None:
-            # Merge farm profile updates
-            farm_profile = current_user.get("farm_profile", {})
-            profile_dict = profile_update.farm_profile.model_dump(exclude_none=True)
-            farm_profile.update(profile_dict)
-            update_data["farm_profile"] = farm_profile
-        
-        # Update user in database
-        await users_collection.update_one(
-            {"_id": user_id},
+    """Update user profile (name, username, bio, language)."""
+    from datetime import datetime, timezone
+    from bson import ObjectId
+
+    update_data = {}
+
+    if request.username and request.username != current_user.get("username"):
+        if not await AuthService.check_username_available(request.username, db):
+            raise error_response(409, "Username already taken")
+        update_data["username"] = request.username.lower()
+
+    if request.name:
+        update_data["name"] = request.name.strip()
+    if request.bio is not None:
+        update_data["bio"] = request.bio
+    if request.language:
+        update_data["language"] = request.language
+
+    if update_data:
+        update_data["updated_at"] = datetime.now(timezone.utc)
+        await db.users.update_one(
+            {"_id": current_user["_id"]},
             {"$set": update_data}
         )
-        
-        # Get updated user
-        updated_user = await users_collection.find_one({"_id": user_id})
-        
-        logger.info(f"Profile updated for user: {user_id}")
-        
-        return UserResponse.model_validate(updated_user)
-        
-    except Exception as e:
-        logger.error(f"Profile update failed: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={
-                "error": "Profile update failed",
-                "message": "Failed to update profile",
-                "message_hi": "Profile update karne mein asafalta"
-            }
-        )
+
+    updated = await db.users.find_one({"_id": current_user["_id"]})
+    return UserResponse.from_mongo(updated)
 
 
-@router.patch("/location", response_model=AuthResponse)
-@limiter.limit("10/minute")
-async def update_location(
-    request: Request,
-    location_update: LocationUpdate,
-    current_user: Dict[str, Any] = Depends(get_current_user)
+# ─────────────────────────────────────────────────────────────────
+# POST /auth/change-password
+# ─────────────────────────────────────────────────────────────────
+@router.post("/change-password")
+async def change_password(
+    request: ChangePasswordRequest,
+    current_user: dict = Depends(get_current_user),
+    db=Depends(get_db),
 ):
-    """
-    Update user's default location.
-    
-    This endpoint updates the user's default location and also
-    upserts the location data into the locations collection.
-    """
+    """Change password. Invalidates all sessions."""
     try:
-        db = get_database()
-        users_collection = db.users
-        locations_collection = db.locations
-        user_id = current_user["_id"]
-        
-        # Prepare location data
-        location_data = location_update.model_dump(exclude_none=True)
-        
-        if not location_data:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail={
-                    "error": "No location data",
-                    "message": "At least one location field must be provided",
-                    "message_hi": "Kam se kam ek location field dena zaroori hai"
-                }
-            )
-        
-        # Update user's default location
-        await users_collection.update_one(
-            {"_id": user_id},
-            {
-                "$set": {
-                    "default_location": location_data,
-                    "updated_at": datetime.utcnow()
-                }
-            }
+        await AuthService.change_password(
+            current_user,
+            request.current_password,
+            request.new_password,
+            db,
         )
-        
-        # Upsert into locations collection
-        location_document = {
-            "user_id": user_id,
-            "location": location_data,
-            "is_default": True,
-            "updated_at": datetime.utcnow()
-        }
-        
-        await locations_collection.update_one(
-            {"user_id": user_id, "is_default": True},
-            {"$set": location_document},
-            upsert=True
-        )
-        
-        logger.info(f"Location updated for user: {user_id}")
-        
-        return AuthResponse(
-            data={
-                "message": "Location updated successfully",
-                "message_hi": "Location safalta se update kar diya gaya hai",
-                "location": location_data
-            }
-        )
-        
-    except HTTPException:
-        raise
-        
-    except Exception as e:
-        logger.error(f"Location update failed: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={
-                "error": "Location update failed",
-                "message": "Failed to update location",
-                "message_hi": "Location update karne mein asafalta"
-            }
-        )
+        return success(message="Password changed. Please login again.")
+    except ValueError as e:
+        raise error_response(400, str(e))
+
+
+# ─────────────────────────────────────────────────────────────────
+# GET /auth/check-username
+# ─────────────────────────────────────────────────────────────────
+@router.get("/check-username", response_model=CheckAvailabilityResponse)
+async def check_username(username: str, db=Depends(get_db)):
+    """Check if username is available (for real-time validation)."""
+    available = await AuthService.check_username_available(username, db)
+    return CheckAvailabilityResponse(
+        available=available,
+        message="Username is available" if available else "Username is already taken",
+    )
+
+
+# ─────────────────────────────────────────────────────────────────
+# GET /auth/check-email
+# ─────────────────────────────────────────────────────────────────
+@router.get("/check-email", response_model=CheckAvailabilityResponse)
+async def check_email(email: str, db=Depends(get_db)):
+    """Check if email is available (for real-time validation)."""
+    available = await AuthService.check_email_available(email, db)
+    return CheckAvailabilityResponse(
+        available=available,
+        message="Email is available" if available else "Email already registered",
+    )
