@@ -30,7 +30,7 @@ export interface RegisterRequest {
   password: string;
   name: string;
   phone?: string;
-  role: 'farmer' | 'agronomist';
+  role: 'farmer' | 'agronomist' | 'admin';
   language: 'hi' | 'en';
 }
 
@@ -127,7 +127,9 @@ export const login = async (email: string, password: string): Promise<AuthRespon
 
   if (!response.ok) {
     const error = await response.json();
-    throw new Error(error.message || 'Login failed');
+    // Handle different error response formats
+    const errorMessage = error.detail || error.message || error.error || 'Login failed';
+    throw new Error(errorMessage);
   }
 
   const data: AuthResponse = await response.json();
@@ -145,7 +147,9 @@ export const register = async (userData: RegisterRequest): Promise<any> => {
 
   if (!response.ok) {
     const error = await response.json();
-    throw new Error(error.message || 'Registration failed');
+    // Handle different error response formats
+    const errorMessage = error.detail || error.message || error.error || 'Registration failed';
+    throw new Error(errorMessage);
   }
 
   return response.json();
