@@ -28,8 +28,8 @@ export function ProtectedRoute({
   // Check role requirements
   useEffect(() => {
     if (isAuthenticated && user && requiredRole) {
-      if (user.role !== requiredRole && user.role !== 'admin') {
-        // Redirect to unauthorized page or dashboard
+      if (user.role !== requiredRole) {
+        // Redirect to unauthorized page
         router.push('/unauthorized');
       }
     }
@@ -56,7 +56,7 @@ export function ProtectedRoute({
     );
   }
 
-  if (requiredRole && user && user.role !== requiredRole && user.role !== 'admin') {
+  if (requiredRole && user && user.role !== requiredRole) {
     return fallback || (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-emerald-100">
         <div className="text-center space-y-4">
