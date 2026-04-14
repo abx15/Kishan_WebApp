@@ -23,6 +23,7 @@ async def fix_farmer_users():
     farmers = [
         {
             "email": "ramesh@agrobrain.ai",
+            "username": "ramesh",
             "hashed_password": hash_password("Farmer@123"),
             "phone": "+919129939972",
             "name": "Ramesh Kumar",
@@ -52,6 +53,7 @@ async def fix_farmer_users():
         },
         {
             "email": "sita@agrobrain.ai",
+            "username": "sita",
             "hashed_password": hash_password("Farmer@123"),
             "phone": "+919876543210",
             "name": "Sita Devi",
@@ -81,6 +83,7 @@ async def fix_farmer_users():
         },
         {
             "email": "mohan@agrobrain.ai",
+            "username": "mohan",
             "hashed_password": hash_password("Farmer@123"),
             "phone": "+919876543211",
             "name": "Mohan Singh",
