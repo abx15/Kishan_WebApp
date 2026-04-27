@@ -63,41 +63,55 @@ async def disconnect_db() -> None:
 
 
 async def create_indexes() -> None:
-    """Create all required MongoDB indexes."""
+    """Create all required MongoDB indexes for performance and constraints."""
     db = db_instance.db
     try:
-        # users collection
+        # ── users ──────────────────────────────────────────────────
         await db.users.create_index("email", unique=True)
         await db.users.create_index("username", unique=True)
-        await db.users.create_index(
-            "phone", unique=True, sparse=True
-        )
+        await db.users.create_index("phone", unique=True, sparse=True)
         await db.users.create_index("created_at")
         await db.users.create_index("role")
+        await db.users.create_index("last_login")
 
-        # weather_logs - TTL: auto-delete after 7 days
+        # ── weather_logs — TTL: auto-delete after 7 days ────────────
         await db.weather_logs.create_index(
             "created_at", expireAfterSeconds=604800
         )
         await db.weather_logs.create_index([("user_id", 1), ("created_at", -1)])
 
-        # crop_recommendations
+        # ── crop_recommendations ────────────────────────────────────
         await db.crop_recommendations.create_index(
             [("user_id", 1), ("created_at", -1)]
         )
 
-        # chat_history - TTL: auto-delete after 90 days
+        # ── chat_sessions (active sessions) ─────────────────────────
+        await db.chat_sessions.create_index("session_id", unique=True)
+        await db.chat_sessions.create_index([("user_id", 1), ("started_at", -1)])
+        await db.chat_sessions.create_index("agronomist_id")
+        await db.chat_sessions.create_index("is_active")
+
+        # ── chat_history — TTL: auto-delete after 90 days ──────────
         await db.chat_history.create_index(
             "created_at", expireAfterSeconds=7776000
         )
-        await db.chat_history.create_index("session_id", unique=True)
         await db.chat_history.create_index([("user_id", 1), ("created_at", -1)])
 
-        # locations
+        # ── api_logs — TTL: auto-delete after 30 days ───────────────
+        await db.api_logs.create_index(
+            "timestamp", expireAfterSeconds=2592000
+        )
+        await db.api_logs.create_index("level")
+
+        # ── locations (geo) ─────────────────────────────────────────
         await db.locations.create_index([("coordinates", "2dsphere")])
         await db.locations.create_index("user_id")
 
-        logger.info("✅ MongoDB indexes created")
+        # ── advisory_tips ────────────────────────────────────────────
+        await db.advisory_tips.create_index([("created_at", -1)])
+        await db.advisory_tips.create_index("priority")
+
+        logger.success("✅ MongoDB indexes created/verified")
     except Exception as e:
         logger.warning(f"Index creation warning (may already exist): {e}")
 
@@ -107,3 +121,7 @@ def get_db() -> AsyncIOMotorDatabase:
     if db_instance.db is None:
         raise RuntimeError("Database not connected. Call connect_db() first.")
     return db_instance.db
+
+
+# Alias for backward compatibility with routes that import get_database
+get_database = get_db

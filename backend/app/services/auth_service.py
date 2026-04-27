@@ -266,3 +266,11 @@ class AuthService:
         # Invalidate all sessions
         await delete_refresh_token(str(user["_id"]))
         logger.info(f"Password changed for user: {user['email']}")
+
+
+# ─── Singleton instance (for legacy imports) ───────────────────────────────────────
+auth_service = AuthService()
+
+# Re-export get_current_user here so routes importing from auth_service still work
+from app.core.security import get_current_user  # noqa: E402,F401
+

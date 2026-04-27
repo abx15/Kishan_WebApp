@@ -1,180 +1,242 @@
 """
 Agronomist Routes for AgroBrain AI
-Provides endpoints for agronomist dashboard functionality
+Provides endpoints for agronomist dashboard functionality.
+Enterprise-level: All routes use Depends(get_current_user) properly.
 """
+
+from datetime import datetime, timezone
+from typing import Dict, Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from loguru import logger
+
 from app.core.database import get_db
-from app.core.security import get_current_user
-from datetime import datetime, timedelta
+from app.core.security import get_current_user, require_roles
 
 router = APIRouter(prefix="/agronomist", tags=["Agronomist"])
 
-# ─────────────────────────────────────────────────────────────────
-# GET /agronomist/stats - Get agronomist dashboard statistics
-# ─────────────────────────────────────────────────────────────────
+
+# ─── Helpers ──────────────────────────────────────────────────────────────────
+def _require_agronomist_access(current_user: Dict[str, Any]) -> None:
+    """Raise 403 if user is not agronomist/admin."""
+    if current_user.get("role") not in ["admin", "agronomist"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Agronomist access required",
+        )
+
+
+# ─── GET /agronomist/stats ────────────────────────────────────────────────────
 @router.get("/stats", status_code=200)
-async def get_agronomist_stats(db=Depends(get_db)):
-    """Get agronomist dashboard statistics"""
+async def get_agronomist_stats(
+    current_user: Dict[str, Any] = Depends(get_current_user),
+    db=Depends(get_db),
+):
+    """Get agronomist dashboard statistics."""
     try:
-        current_user = await get_current_user(db)
-        
-        # Check if user is admin or agronomist
-        if current_user.get("role") not in ["admin", "agronomist"]:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Agronomist access required"
-            )
-        
-        # Get all agronomists count
+        _require_agronomist_access(current_user)
+
         total_agronomists = await db.users.count_documents({"role": "agronomist"})
-        
-        # Get verified agronomists
         verified_agronomists = await db.users.count_documents({
             "role": "agronomist",
-            "is_verified": True
+            "is_verified": True,
         })
-        
-        # Get consultations count (mock for now)
-        total_consultations = 45  # This would come from chat_history
-        success_rate = 94  # Mock success rate
-        
-        # Get crops diagnosed count (mock for now)
-        crops_diagnosed = 234  # This would come from chat analysis
-        
-        stats = {
-            "totalAgronomists": total_agronomists,
-            "verifiedAgronomists": verified_agronomists,
-            "totalConsultations": total_consultations,
-            "cropsDiagnosed": crops_diagnosed,
-            "successRate": success_rate,
-            "farmersHelped": 147
+        total_farmers = await db.users.count_documents({"role": "farmer"})
+
+        # Chat sessions resolved by this agronomist
+        resolved_sessions = await db.chat_sessions.count_documents({
+            "agronomist_id": str(current_user["_id"]),
+            "is_active": False,
+        })
+
+        return {
+            "success": True,
+            "data": {
+                "totalAgronomists": total_agronomists,
+                "verifiedAgronomists": verified_agronomists,
+                "totalFarmers": total_farmers,
+                "resolvedConsultations": resolved_sessions,
+                "totalConsultations": 45,    # Placeholder — replace with real query
+                "cropsDiagnosed": 234,       # Placeholder
+                "successRate": 94,           # Placeholder
+                "farmersHelped": 147,        # Placeholder
+            },
         }
-        
-        logger.info(f"Agronomist stats fetched: {stats}")
-        return stats
-        
+
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error fetching agronomist stats: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to fetch statistics"
+            detail="Failed to fetch agronomist statistics",
         )
 
-# ─────────────────────────────────────────────────────────────────
-# GET /agronomist/consultations - Get consultations for agronomist
-# ─────────────────────────────────────────────────────────────────
+
+# ─── GET /agronomist/consultations ────────────────────────────────────────────
 @router.get("/consultations", status_code=200)
-async def get_consultations(db=Depends(get_db)):
-    """Get consultations for agronomist dashboard"""
+async def get_consultations(
+    limit: int = 20,
+    current_user: Dict[str, Any] = Depends(get_current_user),
+    db=Depends(get_db),
+):
+    """Get consultations assigned to this agronomist."""
     try:
-        current_user = await get_current_user(db)
-        
-        # Check if user is admin or agronomist
-        if current_user.get("role") not in ["admin", "agronomist"]:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Agronomist access required"
-            )
-        
-        # Mock consultations data for now
-        consultations = [
-            {
-                "id": "1",
-                "farmer_id": "farmer_1",
-                "farmer_name": "Ramesh Kumar",
-                "crop": "Wheat",
-                "issue": "Yellowing leaves",
-                "priority": "high",
-                "status": "resolved",
-                "created_at": "2024-01-10T10:30:00Z",
-                "resolved_at": "2024-01-10T12:00:00Z"
+        _require_agronomist_access(current_user)
+
+        cursor = db.chat_sessions.find(
+            {"agronomist_id": str(current_user["_id"])}
+        ).sort("started_at", -1).limit(min(limit, 100))
+
+        consultations = []
+        async for doc in cursor:
+            consultations.append({
+                "id": str(doc["_id"]),
+                "session_id": doc.get("session_id", ""),
+                "farmer_id": doc.get("user_id", ""),
+                "is_active": doc.get("is_active", True),
+                "total_messages": doc.get("total_messages", 0),
+                "started_at": doc.get("started_at", datetime.now(timezone.utc)).isoformat(),
+                "context": doc.get("context", {}),
+            })
+
+        # If no real data, return structured empty response
+        return {
+            "success": True,
+            "data": {
+                "consultations": consultations,
+                "total": len(consultations),
             },
-            {
-                "id": "2",
-                "farmer_id": "farmer_2", 
-                "farmer_name": "Suresh Patel",
-                "crop": "Rice",
-                "issue": "Pest identification",
-                "priority": "medium",
-                "status": "in-progress",
-                "created_at": "2024-01-11T14:15:00Z",
-                "resolved_at": None
-            },
-            {
-                "id": "3",
-                "farmer_id": "farmer_3",
-                "farmer_name": "Mukesh Yadav",
-                "crop": "Cotton",
-                "issue": "Irrigation advice",
-                "priority": "low",
-                "status": "pending",
-                "created_at": "2024-01-12T09:20:00Z",
-                "resolved_at": None
-            }
-        ]
-        
-        logger.info(f"Consultations fetched: {len(consultations)} consultations")
-        return consultations
-        
+        }
+
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error fetching consultations: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to fetch consultations"
+            detail="Failed to fetch consultations",
         )
 
-# ─────────────────────────────────────────────────────────────────
-# GET /agronomist/advisory-tips - Get advisory tips for agronomist
-# ─────────────────────────────────────────────────────────────────
+
+# ─── GET /agronomist/advisory-tips ────────────────────────────────────────────
 @router.get("/advisory-tips", status_code=200)
-async def get_advisory_tips(db=Depends(get_db)):
-    """Get advisory tips for agronomist dashboard"""
+async def get_advisory_tips(
+    current_user: Dict[str, Any] = Depends(get_current_user),
+    db=Depends(get_db),
+):
+    """Get advisory tips for the agronomist dashboard."""
     try:
-        current_user = await get_current_user(db)
-        
-        # Check if user is admin or agronomist
-        if current_user.get("role") not in ["admin", "agronomist"]:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Agronomist access required"
-            )
-        
-        # Mock advisory tips for now
-        tips = [
-            {
-                "id": "1",
-                "title": "Wheat Season Alert",
-                "description": "Monitor for rust diseases in current weather conditions",
-                "type": "warning",
-                "priority": "high",
-                "created_at": "2024-01-15T08:00:00Z"
-            },
-            {
-                "id": "2", 
-                "title": "Optimal Planting Time",
-                "description": "Next 7 days ideal for Rabi crops in North India",
-                "type": "success",
-                "priority": "medium",
-                "created_at": "2024-01-14T10:00:00Z"
-            },
-            {
-                "id": "3",
-                "title": "New Pest Treatment",
-                "description": "Organic pest control approved for cotton farming",
-                "type": "info",
-                "priority": "low",
-                "created_at": "2024-01-13T12:00:00Z"
-            }
-        ]
-        
-        logger.info(f"Advisory tips fetched: {len(tips)} tips")
-        return tips
-        
+        _require_agronomist_access(current_user)
+
+        # Fetch from DB — fall back to static if collection empty
+        cursor = db.advisory_tips.find({}).sort("created_at", -1).limit(10)
+        tips = []
+        async for doc in cursor:
+            tips.append({
+                "id": str(doc["_id"]),
+                "title": doc.get("title", ""),
+                "description": doc.get("description", ""),
+                "type": doc.get("type", "info"),
+                "priority": doc.get("priority", "low"),
+                "created_at": doc.get("created_at", datetime.now(timezone.utc)).isoformat(),
+            })
+
+        # Default tips if DB is empty
+        if not tips:
+            tips = [
+                {
+                    "id": "tip_1",
+                    "title": "Wheat Season Alert",
+                    "description": "Monitor for rust diseases in current weather conditions",
+                    "type": "warning",
+                    "priority": "high",
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                },
+                {
+                    "id": "tip_2",
+                    "title": "Optimal Planting Window",
+                    "description": "Next 7 days ideal for Rabi crops in North India",
+                    "type": "success",
+                    "priority": "medium",
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                },
+                {
+                    "id": "tip_3",
+                    "title": "Organic Pest Control Approved",
+                    "description": "New organic treatment available for cotton bollworm",
+                    "type": "info",
+                    "priority": "low",
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                },
+            ]
+
+        return {
+            "success": True,
+            "data": {"tips": tips, "total": len(tips)},
+        }
+
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error fetching advisory tips: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to fetch advisory tips"
+            detail="Failed to fetch advisory tips",
+        )
+
+
+# ─── GET /agronomist/farmers ───────────────────────────────────────────────────
+@router.get("/farmers", status_code=200)
+async def get_assigned_farmers(
+    limit: int = 20,
+    current_user: Dict[str, Any] = Depends(get_current_user),
+    db=Depends(get_db),
+):
+    """Get farmers who have interacted with this agronomist."""
+    try:
+        _require_agronomist_access(current_user)
+
+        # Get unique farmer IDs from chat sessions
+        cursor = db.chat_sessions.find(
+            {"agronomist_id": str(current_user["_id"])}
+        ).limit(100)
+
+        farmer_ids = set()
+        async for doc in cursor:
+            farmer_ids.add(doc.get("user_id"))
+
+        # Fetch farmer details
+        farmers = []
+        from bson import ObjectId
+        for fid in list(farmer_ids)[:min(limit, 50)]:
+            try:
+                user = await db.users.find_one({"_id": ObjectId(fid)})
+                if user:
+                    farmers.append({
+                        "id": str(user["_id"]),
+                        "name": user.get("name", ""),
+                        "email": user.get("email", ""),
+                        "village": user.get("default_location", {}).get("village", ""),
+                        "state": user.get("default_location", {}).get("state", ""),
+                        "last_login": (
+                            user["last_login"].isoformat()
+                            if user.get("last_login") else None
+                        ),
+                    })
+            except Exception:
+                pass
+
+        return {
+            "success": True,
+            "data": {"farmers": farmers, "total": len(farmers)},
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching assigned farmers: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to fetch farmer list",
         )

@@ -14,9 +14,9 @@ from slowapi import Limiter
 from slowapi.util import get_remote_address
 
 from app.core.logger import logger
-from app.core.database import get_database
-from app.core.redis import get_redis_client
-from app.services.auth_service import get_current_user
+from app.core.database import get_db
+from app.core.redis import get_redis
+from app.core.security import get_current_user
 from app.services.recommendation_service import RecommendationService
 from app.schemas.recommendation import (
     RecommendationRequest,
@@ -49,8 +49,8 @@ async def get_crop_recommendation(
     rec_request: RecommendationRequest,
     current_user: Dict[str, Any] = Depends(get_current_user),
     service: RecommendationService = Depends(get_recommendation_service),
-    db = Depends(get_database),
-    redis = Depends(get_redis_client)
+    db = Depends(get_db),
+    redis = Depends(get_redis)
 ):
     """
     Get personalized crop recommendations based on soil and weather data.
@@ -151,8 +151,8 @@ async def get_daily_tips(
     request: Request,
     current_user: Dict[str, Any] = Depends(get_current_user),
     service: RecommendationService = Depends(get_recommendation_service),
-    db = Depends(get_database),
-    redis = Depends(get_redis_client)
+    db = Depends(get_db),
+    redis = Depends(get_redis)
 ):
     """
     Get 3 personalized daily farming tips.
@@ -180,7 +180,7 @@ async def get_daily_tips(
 async def get_recommendation_history(
     limit: int = Query(10, ge=1, le=50),
     current_user: Dict[str, Any] = Depends(get_current_user),
-    db = Depends(get_database)
+    db = Depends(get_db)
 ):
     """Retrieve history of previous crop recommendations."""
     try:
@@ -218,7 +218,7 @@ async def submit_feedback(
     rec_id: str,
     feedback: FeedbackRequest,
     current_user: Dict[str, Any] = Depends(get_current_user),
-    db = Depends(get_database)
+    db = Depends(get_db)
 ):
     """Submit user feedback for a recommendation."""
     try:

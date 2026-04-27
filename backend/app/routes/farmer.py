@@ -1,147 +1,199 @@
 """
 Farmer Routes for AgroBrain AI
-Provides endpoints for farmer dashboard functionality
+Provides endpoints for farmer dashboard functionality.
+Enterprise-level: All routes use Depends(get_current_user) properly.
 """
+
+from datetime import datetime, timedelta, timezone
+from typing import Dict, Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from loguru import logger
+
 from app.core.database import get_db
 from app.core.security import get_current_user
-from datetime import datetime, timedelta
 
 router = APIRouter(prefix="/farmer", tags=["Farmer"])
 
-# ─────────────────────────────────────────────────────────────────────────────────
-# GET /farmer/stats - Get farmer dashboard statistics
-# ─────────────────────────────────────────────────────────────────────────
+
+# ─── Helpers ──────────────────────────────────────────────────────────────────
+def _require_farmer_access(current_user: Dict[str, Any]) -> None:
+    """Raise 403 if user is not farmer/agronomist/admin."""
+    if current_user.get("role") not in ["farmer", "admin", "agronomist"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Farmer access required",
+        )
+
+
+# ─── GET /farmer/stats ─────────────────────────────────────────────────────────
 @router.get("/stats", status_code=200)
-async def get_farmer_stats(db=Depends(get_db)):
-    """Get farmer dashboard statistics"""
+async def get_farmer_stats(
+    current_user: Dict[str, Any] = Depends(get_current_user),
+    db=Depends(get_db),
+):
+    """Get farmer dashboard statistics."""
     try:
-        current_user = await get_current_user(db)
-        
-        # Check if user is farmer or admin or agronomist
-        if current_user.get("role") not in ["farmer", "admin", "agronomist"]:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Farmer access required"
-            )
-        
-        # Get farmer-specific stats
+        _require_farmer_access(current_user)
+
+        user_id = current_user["_id"]
+        active_threshold = datetime.now(timezone.utc) - timedelta(hours=24)
+
         total_farmers = await db.users.count_documents({"role": "farmer"})
-        
-        # Get active weather logs for this farmer
-        active_threshold = datetime.now() - timedelta(hours=24)
         recent_weather = await db.weather_logs.count_documents({
-            "user_id": current_user["_id"],
-            "created_at": {"$gte": active_threshold}
+            "user_id": str(user_id),
+            "created_at": {"$gte": active_threshold},
         })
-        
-        # Get crop recommendations for this farmer
         crop_recommendations = await db.crop_recommendations.count_documents({
-            "user_id": current_user["_id"]
+            "user_id": str(user_id),
         })
-        
-        stats = {
-            "totalFarmers": total_farmers,
-            "activeWeatherLogs": recent_weather,
-            "cropRecommendations": crop_recommendations,
-            "soilMoisture": 68,  # Mock data for now
-            "weatherCondition": "Sunny",
-            "temperature": 28,
-            "cropHealth": "Excellent"
+        chat_sessions = await db.chat_sessions.count_documents({
+            "user_id": str(user_id),
+        })
+
+        return {
+            "success": True,
+            "data": {
+                "totalFarmers": total_farmers,
+                "activeWeatherLogs": recent_weather,
+                "cropRecommendations": crop_recommendations,
+                "chatSessions": chat_sessions,
+                "soilMoisture": 68,          # Placeholder — replace with sensor data
+                "weatherCondition": "Sunny",
+                "temperature": 28,
+                "cropHealth": "Good",
+            },
         }
-        
-        logger.info(f"Farmer stats fetched: {stats}")
-        return stats
-        
+
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error fetching farmer stats: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to fetch statistics"
+            detail="Failed to fetch farmer statistics",
         )
 
-# ─────────────────────────────────────────────────────────────────────────
-# GET /farmer/weather - Get weather data for farmer
-# ─────────────────────────────────────────────────────────────────────────
+
+# ─── GET /farmer/weather ───────────────────────────────────────────────────────
 @router.get("/weather", status_code=200)
-async def get_weather_data(db=Depends(get_db)):
-    """Get weather data for farmer dashboard"""
+async def get_farmer_weather(
+    current_user: Dict[str, Any] = Depends(get_current_user),
+    db=Depends(get_db),
+):
+    """Get recent weather logs for the farmer dashboard."""
     try:
-        current_user = await get_current_user(db)
-        
-        # Check if user is farmer or admin or agronomist
-        if current_user.get("role") not in ["farmer", "admin", "agronomist"]:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Farmer access required"
-            )
-        
-        # Get weather data from database
-        weather_logs = await db.weather_logs.find({
-            "user_id": current_user["_id"]
-        }).sort("created_at", -1).limit(7)
-        
-        # Format weather data
-        weather_data = {
-            "current": {
-                "temp": 28,
-                "condition": "Sunny",
-                "humidity": 65,
-                "windSpeed": 12
-            },
-            "forecast": []
+        _require_farmer_access(current_user)
+
+        user_id = str(current_user["_id"])
+
+        # Fetch latest 7 weather logs
+        cursor = db.weather_logs.find({"user_id": user_id}).sort("created_at", -1).limit(7)
+        logs = []
+        async for doc in cursor:
+            logs.append({
+                "id": str(doc["_id"]),
+                "temp": doc.get("temperature", 28),
+                "condition": doc.get("condition", "Clear"),
+                "humidity": doc.get("humidity", 65),
+                "windSpeed": doc.get("windSpeed", 12),
+                "fetched_at": doc.get("created_at", datetime.now(timezone.utc)).isoformat(),
+            })
+
+        # Build a sensible current-weather summary
+        current_weather = logs[0] if logs else {
+            "temp": 28, "condition": "Clear", "humidity": 65, "windSpeed": 12
         }
-        
-        if weather_logs:
-            # Get the most recent weather log
-            latest_log = weather_logs[0] if weather_logs else None
-            if latest_log:
-                weather_data["current"] = {
-                    "temp": latest_log.get("temperature", 28),
-                    "condition": latest_log.get("condition", "Clear"),
-                    "humidity": latest_log.get("humidity", 65),
-                    "windSpeed": latest_log.get("windSpeed", 12)
-                }
-        
-        logger.info(f"Weather data fetched for user {current_user.get('email')}")
-        return weather_data
-        
+
+        return {
+            "success": True,
+            "data": {
+                "current": current_weather,
+                "history": logs,
+            },
+        }
+
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Error fetching weather data: {e}")
+        logger.error(f"Error fetching farmer weather: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to fetch weather data"
+            detail="Failed to fetch weather data",
         )
 
-# ─────────────────────────────────────────────────────────────────────────
-# GET /farmer/crop-recommendations - Get crop recommendations for farmer
-# ─────────────────────────────────────────────────────────────────────────
+
+# ─── GET /farmer/crop-recommendations ─────────────────────────────────────────
 @router.get("/crop-recommendations", status_code=200)
-async def get_crop_recommendations(db=Depends(get_db)):
-    """Get crop recommendations for farmer dashboard"""
+async def get_farmer_crop_recommendations(
+    limit: int = 10,
+    current_user: Dict[str, Any] = Depends(get_current_user),
+    db=Depends(get_db),
+):
+    """Get crop recommendation history for the farmer dashboard."""
     try:
-        current_user = await get_current_user(db)
-        
-        # Check if user is farmer or admin or agronomist
-        if current_user.get("role") not in ["farmer", "admin", "agronomist"]:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Farmer access required"
-            )
-        
-        # Get crop recommendations from database
-        recommendations = await db.crop_recommendations.find({
-            "user_id": current_user["_id"]
-        }).sort("created_at", -1).limit(10)
-        
-        logger.info(f"Crop recommendations fetched: {len(recommendations)} for user {current_user.get('email')}")
-        return recommendations
-        
+        _require_farmer_access(current_user)
+
+        user_id = str(current_user["_id"])
+
+        cursor = db.crop_recommendations.find(
+            {"user_id": user_id}
+        ).sort("created_at", -1).limit(min(limit, 50))
+
+        recommendations = []
+        async for doc in cursor:
+            recommendations.append({
+                "id": str(doc["_id"]),
+                "top_crop": doc.get("response", {}).get("top_crops", [{}])[0].get("crop", "N/A"),
+                "confidence": doc.get("response", {}).get("top_crops", [{}])[0].get("confidence_pct", 0),
+                "season": doc.get("request", {}).get("season", ""),
+                "created_at": doc.get("created_at", datetime.now(timezone.utc)).isoformat(),
+            })
+
+        return {
+            "success": True,
+            "data": {
+                "recommendations": recommendations,
+                "total": len(recommendations),
+            },
+        }
+
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error fetching crop recommendations: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to fetch crop recommendations"
+            detail="Failed to fetch crop recommendations",
         )
+
+
+# ─── GET /farmer/profile ───────────────────────────────────────────────────────
+@router.get("/profile", status_code=200)
+async def get_farmer_profile(
+    current_user: Dict[str, Any] = Depends(get_current_user),
+):
+    """Get the authenticated farmer's profile summary."""
+    _require_farmer_access(current_user)
+
+    return {
+        "success": True,
+        "data": {
+            "id": str(current_user["_id"]),
+            "name": current_user.get("name", ""),
+            "email": current_user.get("email", ""),
+            "username": current_user.get("username", ""),
+            "role": current_user.get("role", "farmer"),
+            "language": current_user.get("language", "hi"),
+            "farm_profile": current_user.get("farm_profile", {}),
+            "default_location": current_user.get("default_location", {}),
+            "is_verified": current_user.get("is_verified", False),
+            "login_count": current_user.get("login_count", 0),
+            "last_login": (
+                current_user["last_login"].isoformat()
+                if current_user.get("last_login") else None
+            ),
+            "created_at": current_user.get("created_at", "").isoformat()
+            if current_user.get("created_at") else "",
+        },
+    }

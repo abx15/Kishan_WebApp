@@ -49,6 +49,10 @@ def get_redis() -> Optional[aioredis.Redis]:
     return redis_instance.client if redis_instance.available else None
 
 
+# Alias so both get_redis and get_redis_client work as dependency names
+get_redis_client = get_redis
+
+
 # ─── Cache Helpers ────────────────────────────────────────────────
 
 async def set_cache(key: str, value: Any, ttl: int = 300) -> bool:

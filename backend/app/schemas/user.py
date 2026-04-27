@@ -151,3 +151,36 @@ class MessageResponse(BaseModel):
 class CheckAvailabilityResponse(BaseModel):
     available: bool
     message: str
+
+
+# ─── Admin Schemas ────────────────────────────────────────────────
+
+class UserListResponse(BaseModel):
+    users: list
+    total: int
+    page: int
+    limit: int
+    has_next: bool
+    has_prev: bool
+
+
+class UserBanRequest(BaseModel):
+    reason: Optional[str] = None
+
+
+class UserRoleUpdateRequest(BaseModel):
+    role: Literal["farmer", "agronomist", "admin"]
+
+
+class AdminStatsResponse(BaseModel):
+    total_users: int
+    farmers: int
+    agronomists: int
+    admins: int
+    active_today: int
+    new_this_week: int
+    total_recommendations: int
+    total_chats: int
+    cache_hit_rate: float
+    avg_response_ms: float
+
