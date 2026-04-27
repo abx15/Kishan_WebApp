@@ -69,8 +69,8 @@
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/your-username/agrobrain-ai.git
-   cd agrobrain-ai
+   git clone https://github.com/abx15/Kishan_WebApp.git
+   cd Kishan_WebApp
    ```
 
 2. **Backend Setup**
@@ -93,7 +93,7 @@
    ```env
    # Database
    MONGODB_URL=mongodb://localhost:27017
-   MONGODB_DB_NAME=agrobrain
+   MONGODB_DB_NAME=kishan
    
    # Redis
    REDIS_URL=redis://localhost:6379
@@ -172,27 +172,27 @@ npm run dev
 After running the seed script, you can use these credentials:
 
 ### Admin User
-- **Email**: admin@agrobrain.ai
+- **Email**: admin@kishan.ai
 - **Password**: Admin@123
 
 ### Agronomists
-- **Email**: sharma@agrobrain.ai
+- **Email**: sharma@kishan.ai
 - **Password**: Agronomist@123
 
-- **Email**: patel@agrobrain.ai
+- **Email**: patel@kishan.ai
 - **Password**: Agronomist@123
 
 ### Farmers
-- **Email**: ramesh@agrobrain.ai
+- **Email**: ramesh@kishan.ai
 - **Password**: Farmer@123
 
-- **Email**: sita@agrobrain.ai
+- **Email**: sita@kishan.ai
 - **Password**: Farmer@123
 
-- **Email**: mohan@agrobrain.ai
+- **Email**: mohan@kishan.ai
 - **Password**: Farmer@123
 
-- **Email**: lakshmi@agrobrain.ai
+- **Email**: lakshmi@kishan.ai
 - **Password**: Farmer@123
 
 ## Project Structure

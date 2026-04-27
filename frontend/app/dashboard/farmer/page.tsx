@@ -26,8 +26,6 @@ import {
   Lock
 } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
-import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 
 const farmerStats = [
@@ -51,18 +49,31 @@ const weatherForecast = [
 ];
 
 function FarmerDashboardContent() {
-  const { user, logout } = useAuth();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [selectedTab, setSelectedTab] = useState('overview');
+  const [user, setUser] = useState(null);
 
-  const handleLogout = async () => {
-    try {
-      await logout();
+  useEffect(() => {
+    // Get user from localStorage
+    const userStr = localStorage.getItem('user');
+    if (userStr) {
+      try {
+        setUser(JSON.parse(userStr));
+      } catch (error) {
+        console.error('Error parsing user data:', error);
+        router.push('/auth');
+      }
+    } else {
       router.push('/auth');
-    } catch (error) {
-      console.error('Logout failed:', error);
     }
+  }, [router]);
+
+  const handleLogout = () => {
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
+    localStorage.removeItem('user');
+    router.push('/auth');
   };
 
   useEffect(() => {
@@ -332,9 +343,5 @@ function FarmerDashboardContent() {
 }
 
 export default function FarmerDashboardPage() {
-  return (
-    <ProtectedRoute requiredRole="farmer">
-      <FarmerDashboardContent />
-    </ProtectedRoute>
-  );
+  return <FarmerDashboardContent />;
 }

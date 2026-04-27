@@ -1,40 +1,51 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/contexts/AuthContext';
 import { Shield, Sprout, BookOpen, Loader2 } from 'lucide-react';
 
 export default function DashboardRedirect() {
-  const { user, isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
+  const [isLoading, setIsLoading] = useState(true);
+  const [user, setUser] = useState(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
-    if (isLoading) return;
-
-    if (!isAuthenticated) {
-      router.push('/auth');
-      return;
-    }
-
-    // Redirect based on user role
-    if (user?.role) {
-      switch (user.role) {
-        case 'admin':
-          router.push('/dashboard/admin');
-          break;
-        case 'farmer':
-          router.push('/dashboard/farmer');
-          break;
-        case 'agronomist':
-          router.push('/dashboard/agronomist');
-          break;
-        default:
-          router.push('/dashboard/farmer'); // Default to farmer
-          break;
+    // Check authentication from localStorage
+    const token = localStorage.getItem('access_token');
+    const userStr = localStorage.getItem('user');
+    
+    if (token && userStr) {
+      try {
+        const userData = JSON.parse(userStr);
+        setUser(userData);
+        setIsAuthenticated(true);
+        
+        // Redirect based on user role
+        switch (userData.role) {
+          case 'admin':
+            router.push('/dashboard/admin');
+            break;
+          case 'farmer':
+            router.push('/dashboard/farmer');
+            break;
+          case 'agronomist':
+            router.push('/dashboard/agronomist');
+            break;
+          default:
+            router.push('/dashboard/farmer'); // Default to farmer
+            break;
+        }
+      } catch (error) {
+        console.error('Error parsing user data:', error);
+        router.push('/auth');
       }
+    } else {
+      router.push('/auth');
     }
-  }, [user, isAuthenticated, isLoading, router]);
+    
+    setIsLoading(false);
+  }, [router]);
 
   // Loading state
   if (isLoading || !isAuthenticated) {
